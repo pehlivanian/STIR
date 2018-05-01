@@ -16,26 +16,33 @@ train_years  = config_data.train_years()
 test_years   = config_data.test_years()
 verify_years = config_data.verify_years()
 
-def plot_GSCI_book():
+def plot_GSCI_book(filename='./figs/GSCI_spreads.pdf'):
 
-    # XXX
-    products = ['NG']
+    with PdfPages(filename) as pdf:
+        for product in products:
+            figs = plot_GSCI_by_product(product)
+            for fig in figs:
+                pdf.savefig(fig)
+                
+            
+            
+def plot_GSCI_by_product(product):
+
+    exchange = name_map['exch_map'][product]
+    db_name = '_'.join(['STIR', exchange, product, 'SUMM'])
+    db_conn = db.DBExt(product, db_name=db_name)
+    tables = db_conn._metadata.tables
+
+    figs = list()
+    for k,v in tables.items():
+        table_data = v.select().execute().fetchall()
+        columns    = [column.name for column in v.columns]
+        df = pd.DataFrame(table_data, columns=columns)
+        fig = lib.plot_GSCI(df)
+        figs.append(fig)
+        
+    return figs
     
-    # Results by product
-    for product in products:
-        exchange = name_map['exch_map'][product]
-        db_name = '_'.join(['STIR', exchange, product, 'SUMM'])
-        db_conn = db.DBExt(product, db_name=db_name)
-        tables = db_conn._metadata.tables
-        for k,v in tables.items():
-            table_data = v.select().execute().fetchall()
-            columns    = [column.name for column in v.columns]
-            df = pd.DataFrame(table_data, columns=columns)
-
-            fig = lib.plot_GSCI(df)
-
-
-
 
 def plot_book():
     for product in products:

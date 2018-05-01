@@ -10,7 +10,6 @@ import subprocess
 import re
 import os
 
-
 def plot_GSCI(summ):
 
     fig = plt.figure()
@@ -27,15 +26,14 @@ def plot_GSCI(summ):
     fig.subplots_adjust(wspace=0.1)
     axis = fig.add_subplot(subplot_ind)
 
-    dates = summ.Date.get_values()
-    PL    = summ.PL.get_values()
-    PL    = np.cumsum(pd.to_numeric(PL))
-    axis.plot(dates, PL, linewidth=3)
-
-    import pdb
-    pdb.set_trace()
-
-    axis.set_title('Product{}: {}'.format(summ.Prod, summ.Strategy))
+    df = summ[['Date', 'PL']]
+    df['PL'] = df['PL'].apply(pd.to_numeric)
+    df = df.dropna(how='any')
+    df['PL'] = np.cumsum(df['PL'])
+    df.plot(use_index=False, legend=True, grid=True, ax=axis)
+    
+    axis.set_title('Product{}: {}'.format(summ['Prod'].get_values()[0],
+                                          summ['Strategy'].get_values()[0]))    
     axis.set_xlabel('Date')
     axis.set_ylabel('PL ($)')
     
@@ -51,16 +49,24 @@ def plot_GSCI(summ):
     fig.subplots_adjust(wspace=0.1)
     axis = fig.add_subplot(subplot_ind)
 
-    dates = summ.Date
-    PL    = summ.PL
-    PL    = pd.to_numeric(PL)
-    
-    axis.plot(dates, np.cumsum(PL), linewidth=3)
+    summ['PL'] = summ['PL'].apply(pd.to_numeric)
+    summ.dropna(how='any')    
+    summ['PL_EST'] = 0
+    summ['PL_LIQ'] = 0
+    est_mask = summ['SubStrategy'] == 'EST'
+    liq_mask = summ['SubStrategy'] == 'LIQ'
+    summ['PL_EST'][est_mask] = summ[est_mask]['PL']
+    summ['PL_LIQ'][liq_mask] = summ[liq_mask]['PL']
+    summ['PL_EST'] = np.cumsum(summ['PL_EST'])
+    summ['PL_LIQ'] = np.cumsum(summ['PL_LIQ'])
+      
+    summ[['Date', 'PL_EST', 'PL_LIQ']].plot(use_index=False, legend=True, grid=True, ax=axis)
 
-    axis.set_title('Product{}: {}'.format(summ.Prod, summ.Strategy))
+    axis.set_title('Product{}: {}'.format(summ['Prod'].get_values()[0],
+                                          summ['Strategy'].get_values()[0]))
     axis.set_xlabel('Date')
     axis.set_ylabel('PL ($)')
-    
+
     return fig
     
 

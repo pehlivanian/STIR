@@ -285,11 +285,8 @@ class Backtester(Visitor):
                 if int(foll_year) > max([int(yr) for yr in all_years]):
                     continue
 
-                if not isinstance(price, pd.DataFrame):
+                if not isinstance(price[year], pd.DataFrame):
                     continue
-                
-                import pdb
-                pdb.set_trace()
                 
                 start_roll_date, end_roll_date = roll_dates_by_month(curr_year, month_num)
 
@@ -315,15 +312,22 @@ class Backtester(Visitor):
                 except Exception as e:
                     DCRP_ref_date = bus_day_add(est_dates_df['Date'].get_values()[0], -1)
                     DCRP = float(price[foll_year][price[foll_year]['Date'] == DCRP_ref_date]['Open1'].get_values()[0])
-                    
+
+                # Round to nearest integer
+                # lots              = round(total_dollars * (RPDW / 100) / float(name_map['lotsize_map'][self._product])
+                #                           / DCRP / float(name_map['mult_map'][self._product]), 0)
+
+                # Don't
                 lots              = round(total_dollars * (RPDW / 100) / float(name_map['lotsize_map'][self._product])
                                           / DCRP / float(name_map['mult_map'][self._product]), 0)
+                
                 product_dols      = total_dollars * (RPDW / 100)
                 dols_per_tick     = float(name_map['lotsize_map'][self._product]) * float(name_map['mult_map'][self._product])
 
                 pos_df = pd.DataFrame({ 'Position' : np.linspace(0, -1*lots, 1+est_dates_df.shape[0])[1:] })
                 pos_df = pd.concat([est_dates_df, pos_df], axis=1)
-                est_price_pos = pd.merge(pos_df, price[foll_year], how='left')[['Date', 'Prod1', 'Month1', 'Month2', 'Offset', 'Position', 'Settle12']]
+                est_price_pos = pd.merge(pos_df, price[foll_year], how='left')[['Date', 'Prod1', 'Month1', 'Month2', 'Offset',
+                                                                                'Settle1', 'Settle2', 'Position', 'Settle12']]
                 est_price_pos['Dols']          = product_dols
                 est_price_pos['Price_mult']    = dols_per_tick
                 est_price_pos['SubStrategy']   = 'EST'
@@ -331,9 +335,12 @@ class Backtester(Visitor):
 
                 # Liquidating position
                 liq_dates_df = create_roll_dates(days_after, end_roll_date, establish=False)
-                pos_df = pd.DataFrame({ 'Position' : np.linspace(1*lots, 0, 1+liq_dates_df.shape[0])[:-1] })
+                pos_df = pd.DataFrame({ 'Position' : np.linspace(1*lots, 0,
+                                                                 1+liq_dates_df.shape[0])[:-1] })
                 pos_df = pd.concat([liq_dates_df, pos_df], axis=1)
-                liq_price_pos = pd.merge(pos_df, price[foll_year], how='left')[['Date', 'Prod1', 'Month1', 'Month2', 'Offset', 'Position', 'Settle12']]
+                liq_price_pos = pd.merge(pos_df, price[foll_year],
+                                        how='left')[['Date', 'Prod1', 'Month1', 'Month2', 'Offset', 'Settle1', 'Settle2', \
+                                                      'Position', 'Settle12']]
                 liq_price_pos['Dols']          = product_dols
                 liq_price_pos['Price_mult']    = dols_per_tick
                 liq_price_pos['SubStrategy']   = 'LIQ'
