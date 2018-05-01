@@ -1,0 +1,22 @@
+# Unimportant stuff
+__pycache__
+*.dat
+*.pyc
+*.dvi
+*.aux
+*.out
+*.pdf
+*.log
+*.gz
+*.synctex.gz
+*.blg
+*.bbl
+X_*
+y_*
+df_*
+X
+y
+*~
+src/metastore_db/seg0/*.dat
+
+

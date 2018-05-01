@@ -1,0 +1,17 @@
+min_h_p :                       ~ h_p below          [hp in write_spreads]
+s_day : [ in time_params ]      ~ s_day below        [dd in write_spreads]
+tm_bef : [ in time_params ]     ~ tm_bef below       [fd in write_spreads]
+day_inc : [ in time_params ]    ~ day_offset below   [day_inc in write_wpreads]
+h_p_inc : [ in time_params ]    ~ hp_below           [hp_inc in write_spreads]
+
+CLV[0]-CLX[1].1.60.190.2 ~
+prod_1-prod_2.s_day.h_p.tm_bef.day_offset
+
+prod_1 : CLV[0]
+prod_2 : CLX[1]
+s_day : 1          ~ defines buffer before LTD for contract
+h_p* : 60          ~ last_sim_day = first_sim_day + h_p
+tm_bef : 190       ~ first_day = last_day - tm_bef
+day_offset* : 2    ~ first_sim_day = first_day + day_offset
+
+will vary in outer loops of simulation
