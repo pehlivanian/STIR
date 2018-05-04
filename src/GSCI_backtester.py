@@ -208,6 +208,21 @@ class Problem_1(object):
     def params():
         return Param(DB=5, acc_method='linear', DA=5, liq_method='linear')
 
+class Problem_2(object):
+    def __init__(self):
+        pass
+
+    @staticmethod
+    def params():
+        return Param(DB=10, acc_method='linear', DA=10, liq_method='linear')        
+
+class Problem_3(object):
+    def __init__(self):
+        pass
+
+    @staticmethod
+    def params():
+        return Param(DB=2, acc_method='linear', DA=10, liq_method='linear')        
 
 class Visitor(metaclass=abc.ABCMeta):
     def __init__(self):
@@ -310,8 +325,16 @@ class Backtester(Visitor):
                     DCRP_ref_date = est_dates_df['Date'].get_values()[0]
                     DCRP = float(price[foll_year][price[foll_year]['Date'] == DCRP_ref_date]['Open1'].get_values()[0])
                 except Exception as e:
-                    DCRP_ref_date = bus_day_add(est_dates_df['Date'].get_values()[0], -1)
-                    DCRP = float(price[foll_year][price[foll_year]['Date'] == DCRP_ref_date]['Open1'].get_values()[0])
+                    days_back = 1
+                    while days_back < 10:
+                        try:
+                            DCRP_ref_date = bus_day_add(est_dates_df['Date'].get_values()[0], -days_back)
+                            DCRP = float(price[foll_year][price[foll_year]['Date'] == DCRP_ref_date]['Open1'].get_values()[0])
+                            days_back += 1
+                            break
+                        except IndexError as e:
+                            days_back += 1
+                        
 
                 # Round to nearest integer
                 # lots              = round(total_dollars * (RPDW / 100) / float(name_map['lotsize_map'][self._product])
@@ -365,7 +388,9 @@ class Backtester(Visitor):
 
 if __name__ == '__main__':
     for product in products:
-        B = Backtester(product)
+        # B = Backtester(product, param_obj=Problem_1)
+        # B = Backtester(product, param_obj=Problem_2)
+        B = Backtester(product, param_obj=Problem_3)        
         results, table_name = B.backtest_helper()
         print('{} FINISHED: WROTE TO TABLE: {}'.format(product, table_name))
 

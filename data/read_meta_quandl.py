@@ -113,6 +113,7 @@ def all_names():
     mult = []
     exch = []
     q_str = []
+    sector = []
 
     fn = names_dir + "names_tickers.dat"
     file = open(fn)
@@ -124,19 +125,24 @@ def all_names():
         lotsize.append(line_sp[2])
         mult.append(line_sp[3])
         exch.append(line_sp[4])
-        q_str.append(line_sp[5].rstrip())
-    
+        q_str.append(line_sp[5])
+        sector.append(line_sp[6].rstrip())
+
     ticker_map = dict(zip(sym,ticker))
     lotsize_map = dict(zip(sym,lotsize))
     mult_map = dict(zip(sym,mult))
     exch_map = dict(zip(sym,exch))
     q_str_map = dict(zip(sym,q_str))
+    sector_map = dict(zip(sym,sector))
+    
     
     return {'ticker_map' : ticker_map,
             'lotsize_map': lotsize_map,
             'mult_map'   : mult_map,
             'exch_map'   : exch_map,
-            'q_str_map'  : q_str_map}
+            'q_str_map'  : q_str_map,
+            'sector_map' : sector_map,
+            }
     
 def all_products():
     return all_names()['ticker_map'].keys()

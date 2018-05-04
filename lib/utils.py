@@ -1,11 +1,14 @@
 import data as config_data
 import pandas as pd
+from collections import defaultdict
 
 import MySQLdb as mariadb
 from pymongo import MongoClient
 from sqlalchemy import create_engine, Table, Column, MetaData, inspect
 from sqlalchemy_utils import database_exists, create_database
 from contextlib import contextmanager
+
+import db
 
 products     = config_data.all_products()
 nrbys        = config_data.all_nrbys()
@@ -67,6 +70,27 @@ def check_close_tables(summ_only=False):
             db_length.append(num_tables)
 
     return pd.DataFrame( { 'Table' : db_name, 'Length' : db_length })
+
+def get_summary(products):
+
+    summ_dataframes = defaultdict(list)
+    
+    exchange = name_map['exch_map'][product]
+    db_name  = '_'.join(['STIR', exchange, product, 'SUMM'])
+    db_conn  = db.DBExt(product, db_name=db_name)
+    tables   = db_conn._metadata.tables
+
+    for k,v in tables.items():
+        table_data = v.select().execute().fetchall()
+        columns    = [column.name for column in v.columns]
+        df         = pd.DataFrame(table_data, columns=columns)
+
+        df_key = k.split(product)[-1][1:]
+        summ_dataframes[df_key].append(df)
+
+    return summ_dataframes
+        
+
 
                             
                             
