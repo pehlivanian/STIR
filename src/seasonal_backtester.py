@@ -115,8 +115,6 @@ class Backtester(Visitor):
                 print('Rows in summary_all: {}'.format(summary_all.shape[0]))
                 
                 if summary_all.shape[0] >= MAX_ROWS:
-                    import pdb
-                    pdb.set_trace()
                     table_name = 'spread_strat_summ_' + str(counter)
                     summary_all.to_sql(con=self._DBConn, name=table_name, if_exists='replace', index=False)
                     print('Wrote to table: {!r}'.format(table_name))

@@ -17,7 +17,7 @@ train_years  = config_data.train_years()
 test_years   = config_data.test_years()
 verify_years = config_data.verify_years()
 
-def read_summary_tables(product):
+def read_GSCI_summary_tables(product):
 
     exchange = name_map['exch_map'][product]
     db_name = '_'.join(['STIR', exchange, product, 'SUMM'])
@@ -26,10 +26,11 @@ def read_summary_tables(product):
 
     rpts = list()
     for k,v in tables.items():
-        table_data = v.select().execute().fetchall()
-        columns    = [column.name for column in v.columns]
-        df = pd.DataFrame(table_data, columns=columns)
-        rpts.append(df)
+        if k.startswith('GSCI_strat_summ'):
+            table_data = v.select().execute().fetchall()
+            columns    = [column.name for column in v.columns]
+            df = pd.DataFrame(table_data, columns=columns)
+            rpts.append(df)
 
     return rpts
     
@@ -39,7 +40,7 @@ def plot_GSCI_book(filename='./figs/GSCI_spreads.pdf'):
     
     with PdfPages(filename) as pdf:
         for product in products:
-            reports = read_summary_tables(product)
+            reports = read_GSCI_summary_tables(product)
 
             # Create the sector-grouped reports along the way
             sector = name_map['sector_map'][product]

@@ -269,7 +269,7 @@ class Backtester(Visitor):
     def backtest_helper(self, total_dollars=1e6):
 
         if self._product not in GSCI_products:
-            return None, None
+            return None, None, None, None
 
         portfolio_results = pd.DataFrame()
 
@@ -380,17 +380,30 @@ class Backtester(Visitor):
         portfolio_results['RPDW'] = RPDW
         portfolio_results['Strategy'] = '_'.join([self._product, self.__repr__()])
 
-        table_name = '_'.join(['GSCI_strat_summ', self._product, 'DEFAULT', self.__repr__()])
-        portfolio_results.to_sql(con=self._DBConn, name=table_name, if_exists='replace', index=False)
+        portfolio_results = portfolio_results.sort_values('Date')
+        
+        summ_table_name = '_'.join(['GSCI_strat_summ', self._product, 'DEFAULT', self.__repr__()])
+        portfolio_results.to_sql(con=self._DBConn, name=summ_table_name, if_exists='replace', index=False)
 
-        return portfolio_results, table_name
+        diffs = pd.Series(np.diff(portfolio_results['PL']))
+        metrics  = pd.DataFrame({k:[v(diffs)] for k,v in self._metrics_map.items()})
+
+        metrics_table_name = '_'.join(['GSCI_strat_metrics', self._product, 'DEFAULT', self.__repr__()])
+        metrics.to_sql(con=self._DBConn, name=metrics_table_name, if_exists='replace', index=False)
+        
+        return portfolio_results, metrics, summ_table_name, metrics_table_name
     
 
 if __name__ == '__main__':
     for product in products:
-        # B = Backtester(product, param_obj=Problem_1)
-        # B = Backtester(product, param_obj=Problem_2)
-        B = Backtester(product, param_obj=Problem_3)        
-        results, table_name = B.backtest_helper()
-        print('{} FINISHED: WROTE TO TABLE: {}'.format(product, table_name))
+        B1 = Backtester(product, param_obj=Problem_1)
+        summ, metrics, summ_table_name, metrics_table_name = B1.backtest_helper()
+
+        B2 = Backtester(product, param_obj=Problem_2)
+        summ, metrics, summ_table_name, metrics_table_name = B2.backtest_helper()
+        
+        B3 = Backtester(product, param_obj=Problem_3)        
+        summ, metrics, summ_table_name, metrics_table_name = B3.backtest_helper()
+
+        print('{} FINISHED: WROTE TO TABLE: {}'.format(product, summ_table_name))
 

@@ -29,8 +29,13 @@ def plot_GSCI(summ):
     df = summ[['Date', 'PL']]
     df['PL'] = df['PL'].apply(pd.to_numeric)
     df = df.dropna(how='any')
+
+    df.Date = pd.to_datetime(df['Date'], format='%Y-%m-%d')
+    df.set_index(['Date'], inplace=True)
+
     df['PL'] = np.cumsum(df['PL'])
-    df.plot(use_index=False, legend=True, grid=True, ax=axis)
+    
+    df.plot(legend=True, grid=True, ax=axis)
     
     axis.set_title('Product{}: {}'.format(summ['Prod'].get_values()[0],
                                           summ['Strategy'].get_values()[0]))    
@@ -57,10 +62,14 @@ def plot_GSCI(summ):
     liq_mask = summ['SubStrategy'] == 'LIQ'
     summ['PL_EST'][est_mask] = summ[est_mask]['PL']
     summ['PL_LIQ'][liq_mask] = summ[liq_mask]['PL']
+
+    summ.Date = pd.to_datetime(summ['Date'], format='%Y-%m-%d')
+    summ.set_index(['Date'], inplace=True)
+
     summ['PL_EST'] = np.cumsum(summ['PL_EST'])
     summ['PL_LIQ'] = np.cumsum(summ['PL_LIQ'])
-      
-    summ[['Date', 'PL_EST', 'PL_LIQ']].plot(use_index=False, legend=True, grid=True, ax=axis)
+    
+    summ[['PL_EST', 'PL_LIQ']].plot(legend=True, grid=True, ax=axis)
 
     axis.set_title('Product{}: {}'.format(summ['Prod'].get_values()[0],
                                           summ['Strategy'].get_values()[0]))

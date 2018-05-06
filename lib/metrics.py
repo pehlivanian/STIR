@@ -8,8 +8,8 @@ def max_drawdown(s):
     drawdown = -sys.maxsize-1
     M = s[0]
     for i,v in enumerate(s):
-        M = max(M,v)
-        drawdown = max(M-v,drawdown)
+        M = np.nanmax([M,v])
+        drawdown = np.nanmax([M-v,drawdown])
     return drawdown
 
 def max_drawup(s):
