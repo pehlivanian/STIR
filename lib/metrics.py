@@ -4,38 +4,84 @@ import re
 import string
 import sys
 
-def max_drawdown(s):
+def max_drawdown(s, mult=1):
     drawdown = -sys.maxsize-1
-    M = s[0]
+    M = s.get_values()[0]
     for i,v in enumerate(s):
         M = np.nanmax([M,v])
         drawdown = np.nanmax([M-v,drawdown])
-    return drawdown
+    return mult*drawdown
 
-def max_drawup(s):
-    return max_drawdown(-s)
+def max_drawdown_levels(s, mult=1):
+    cs = np.cumsum(s)
+    drawdown = -sys.maxsize-1
+    M = cs.get_values()[0]
+    for i,v in enumerate(cs):
+        M = np.nanmax([M,v])
+        drawdown = np.nanmax([M-v,drawdown])
+    return mult*drawdown
+
+def max_drawup(s, mult=1):
+    return mult*max_drawdown(-s)
+
+def max_drawup_levels(s, mult=1):
+    return mult*max_drawdown_levels(-s)
 
 def sharpe(s):
-    mn = np.mean(s)
-    mnsq = np.mean(s*s)
-    return np.sqrt(250/len(s)) * mn / np.sqrt(mnsq-(mn**2))
+    return np.sqrt(252)*np.nanmean(s)/np.nanstd(s)
 
-def meanret(s):
-    return round(np.mean(s), 4)
+def sharpe_levels(s):
+    return np.sqrt(252)*np.nanmean(s)/np.nanstd(s)
+
+def meanret(s, mult=1):
+    return mult*round(np.nanmean(s), 4)
+
+def meanret_levels(s, mult=1):
+    return mult*round(np.nanmean(s), 4)
 
 def uprat(s):
     try:
         return sum(s>0)/len(s)
     except ValueError:
-        return 1.
+        return 0.
 
+def uprat_levels(s):
+    try:
+        return sum(s>0)/len(s)
+    except ValueError:
+        return 0.
+
+def nonnegrat(s):
+    try:
+        return sum(s>=0)/len(s)
+    except ValueError:
+        return 0.
+
+def nonnegrat_levels(s):
+    try:
+        return sum(s>=0)/len(s)
+    except ValueError:
+        return 0.
+    
 def freq(s):
-    ps = np.abs(np.fft.rfft(s))
+    ps = np.abs(np.fft.rfft(s.fillna(0)))
+    freq = np.fft.fftfreq(len(s), 1)
+    ps/=sum(ps)
+    return max(zip(freq[1:],ps[1:]), key=lambda x:x[1])[0]
+
+def freq_levels(s):
+    ps = np.abs(np.fft.rfft(s.fillna(0)))
     freq = np.fft.fftfreq(len(s), 1)
     ps/=sum(ps)
     return max(zip(freq[1:],ps[1:]), key=lambda x:x[1])[0]
 
 def ampl(s):
+    ps = np.abs(np.fft.rfft(s))
+    freq = np.fft.fftfreq(len(s), 1)
+    ps/=sum(ps)
+    return max(zip(freq[1:],ps[1:]), key=lambda x:x[1])[1]
+
+def ampl_levels(s):
     ps = np.abs(np.fft.rfft(s))
     freq = np.fft.fftfreq(len(s), 1)
     ps/=sum(ps)

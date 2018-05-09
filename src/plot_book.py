@@ -25,14 +25,25 @@ def read_GSCI_summary_tables(product):
     tables = db_conn._metadata.tables
 
     rpts = list()
+    metrics = pd.DataFrame()
+    
     for k,v in tables.items():
         if k.startswith('GSCI_strat_summ'):
             table_data = v.select().execute().fetchall()
             columns    = [column.name for column in v.columns]
             df = pd.DataFrame(table_data, columns=columns)
             rpts.append(df)
+        if k.startswith('GSCI_strat_metrics'):
+            table_data = [x if x else 0 for x in v.select().execute().fetchall()[0]]
+            columns    = [column.name for column in v.columns]
+            df = pd.DataFrame(dict(zip(columns, table_data)), index=[0])
+            df['Strat'] = '_'.join(k.split('_')[4:])
+            metrics = pd.concat([metrics, df], ignore_index=True)
 
-    return rpts
+    metrics = metrics.set_index('Strat', drop=True)
+    metrics = metrics.astype('float')
+            
+    return rpts, metrics
     
 def plot_GSCI_book(filename='./figs/GSCI_spreads.pdf'):
 
@@ -40,7 +51,7 @@ def plot_GSCI_book(filename='./figs/GSCI_spreads.pdf'):
     
     with PdfPages(filename) as pdf:
         for product in products:
-            reports = read_GSCI_summary_tables(product)
+            reports, metrics = read_GSCI_summary_tables(product)
 
             # Create the sector-grouped reports along the way
             sector = name_map['sector_map'][product]
@@ -48,9 +59,16 @@ def plot_GSCI_book(filename='./figs/GSCI_spreads.pdf'):
                 strategy_short = '_'.join(report['Strategy'].get_values()[0].split('_')[1:])
                 reports_by_sector[strategy_short][sector].append(report)
                 
-            figs = plot_GSCI_by_product(reports)
-            for fig in figs:
+            rpt_figs = plot_GSCI_summ_by_product(reports)
+            for fig in rpt_figs:
                 pdf.savefig(fig)
+
+            import pdb
+            pdb.set_trace()
+            
+            met_figs = plot_GSCI_metrics_by_product(metrics)
+            # for fig in met_figs:
+            #     pdf.savefig(fig)
 
         # for strategy,sector_reports in reports_by_sector.items():
         #     for sector,reports in sector_reports.items():
@@ -60,11 +78,19 @@ def plot_GSCI_book(filename='./figs/GSCI_spreads.pdf'):
                     
                     
                
-def plot_GSCI_by_product(reports):
+def plot_GSCI_summ_by_product(reports):
 
     figs = list()
     for report in reports:
-        fig = lib.plot_GSCI(report)
+        fig = lib.plot_GSCI_summ(report)
+        figs.append(fig)
+    return figs
+
+def plot_GSCI_metrics_by_product(metrics):
+
+    figs = list()
+    for metric in metrics:
+        fig = lib.plot_GSCI_metrics(metric)
         figs.append(fig)
     return figs
     

@@ -4,6 +4,7 @@ import datetime
 import bisect
 import pandas as pd
 import numpy as np
+from functools import partial
 from pymongo import MongoClient
 from pandas.tseries.holiday import USFederalHolidayCalendar
 from pandas.tseries.offsets import CustomBusinessDay
@@ -237,12 +238,14 @@ class Backtester(Visitor):
         self._product     = product
         self._exchange    = name_map['exch_map'][self._product]
         self._credentials = Credentials()
-        self._metrics_map = {'drawup'  : lib.max_drawup,
-                             'drawdn'  : lib.max_drawdown,
-                             'sharpe'  : lib.sharpe,
-                             'updnrat' : lib.uprat,
-                             'freq'    : lib.freq,
-                             'ampl'    : lib.ampl}
+        self._metrics_map = {'drawupK'   : partial(lib.max_drawup_levels,   mult=1e-3),
+                             'drawdnK'   : partial(lib.max_drawdown_levels, mult=1e-3),
+                             'meanretK'  : partial(lib.meanret_levels,      mult=1e-3),
+                             'sharpe'    : lib.sharpe_levels,
+                             'updnrat'   : lib.uprat_levels,
+                             'nonnegrat' : lib.nonnegrat_levels,
+                             'freq'      : lib.freq_levels,
+                             'ampl'      : lib.ampl_levels}
         self._db_name = '_'.join(['STIR', self._exchange, self._product, 'SUMM'])
         self._SpreadObj = lib.Spread(product)
         self._DBConn = self._DB_conn(*self._credentials.DB_creds(db_override=self._db_name))
@@ -385,12 +388,20 @@ class Backtester(Visitor):
         summ_table_name = '_'.join(['GSCI_strat_summ', self._product, 'DEFAULT', self.__repr__()])
         portfolio_results.to_sql(con=self._DBConn, name=summ_table_name, if_exists='replace', index=False)
 
-        diffs = pd.Series(np.diff(portfolio_results['PL']))
-        metrics  = pd.DataFrame({k:[v(diffs)] for k,v in self._metrics_map.items()})
-
-        metrics_table_name = '_'.join(['GSCI_strat_metrics', self._product, 'DEFAULT', self.__repr__()])
-        metrics.to_sql(con=self._DBConn, name=metrics_table_name, if_exists='replace', index=False)
+        # diffs = pd.Series(np.diff(portfolio_results['PL']))
+        # metrics  = pd.DataFrame({k:[v(diffs)] for k,v in self._metrics_map.items()})
         
+        levels  = pd.Series(portfolio_results['PL']).astype('float')
+        metrics  = pd.DataFrame({k:[v(levels)] for k,v in self._metrics_map.items()})
+
+        try:
+            metrics_table_name = '_'.join(['GSCI_strat_metrics', self._product, 'DEFAULT', self.__repr__()])
+            metrics.to_sql(con=self._DBConn, name=metrics_table_name, if_exists='replace', index=False)
+        except Exception as e:
+            print('BOMB')
+            import pdb
+            pdb.set_trace()
+
         return portfolio_results, metrics, summ_table_name, metrics_table_name
     
 

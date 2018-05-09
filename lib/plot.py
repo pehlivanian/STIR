@@ -10,7 +10,7 @@ import subprocess
 import re
 import os
 
-def plot_GSCI(summ):
+def plot_GSCI_summ(summ):
 
     fig = plt.figure()
 
@@ -77,6 +77,11 @@ def plot_GSCI(summ):
     axis.set_ylabel('PL ($)')
 
     return fig
+
+def plot_GSCI_metrics(metrics):
+    print('BOMB')
+    import pdb
+    pdb.set_trace()
     
 
 def plot_spreads(df):
