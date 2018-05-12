@@ -384,7 +384,7 @@ class Backtester(Visitor):
         portfolio_results['Strategy'] = '_'.join([self._product, self.__repr__()])
 
         portfolio_results = portfolio_results.sort_values('Date')
-        
+
         summ_table_name = '_'.join(['GSCI_strat_summ', self._product, 'DEFAULT', self.__repr__()])
         portfolio_results.to_sql(con=self._DBConn, name=summ_table_name, if_exists='replace', index=False)
 
@@ -394,13 +394,8 @@ class Backtester(Visitor):
         levels  = pd.Series(portfolio_results['PL']).astype('float')
         metrics  = pd.DataFrame({k:[v(levels)] for k,v in self._metrics_map.items()})
 
-        try:
-            metrics_table_name = '_'.join(['GSCI_strat_metrics', self._product, 'DEFAULT', self.__repr__()])
-            metrics.to_sql(con=self._DBConn, name=metrics_table_name, if_exists='replace', index=False)
-        except Exception as e:
-            print('BOMB')
-            import pdb
-            pdb.set_trace()
+        metrics_table_name = '_'.join(['GSCI_strat_metrics', self._product, 'DEFAULT', self.__repr__()])
+        metrics.to_sql(con=self._DBConn, name=metrics_table_name, if_exists='replace', index=False)
 
         return portfolio_results, metrics, summ_table_name, metrics_table_name
     

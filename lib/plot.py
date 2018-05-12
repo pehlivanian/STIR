@@ -44,14 +44,14 @@ def plot_GSCI_summ(summ):
     
     subplot_ind = 212
     
-    fig.subplots_adjust(bottom=0.05)
-    fig.subplots_adjust(hspace=0.1)
-    fig.subplots_adjust(top=0.95)
-    fig.subplots_adjust(bottom=0.05)
-    fig.subplots_adjust(left=.05)
-    fig.subplots_adjust(right=.95)
-    fig.subplots_adjust(right=.95)
-    fig.subplots_adjust(wspace=0.1)
+    # fig.subplots_adjust(bottom=0.05)
+    # fig.subplots_adjust(hspace=0.05)
+    # fig.subplots_adjust(top=0.99)
+    # fig.subplots_adjust(bottom=0.01)
+    # fig.subplots_adjust(left=.01)
+    # fig.subplots_adjust(right=.99)
+    # fig.subplots_adjust(right=.99)
+    # fig.subplots_adjust(wspace=0.05)
     axis = fig.add_subplot(subplot_ind)
 
     summ['PL'] = summ['PL'].apply(pd.to_numeric)
@@ -78,10 +78,17 @@ def plot_GSCI_summ(summ):
 
     return fig
 
-def plot_GSCI_metrics(metrics):
-    print('BOMB')
-    import pdb
-    pdb.set_trace()
+def plot_GSCI_metrics(metrics, product):
+
+    fig = plt.figure()
+
+    subplot_ind = 111
+    axis = fig.add_subplot(subplot_ind)
+
+    metrics.plot(kind='bar',grid=True, ax=axis)
+    axis.set_title('Product: {}'.format(product))
+    
+    return fig
     
 
 def plot_spreads(df):

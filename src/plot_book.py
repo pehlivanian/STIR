@@ -40,8 +40,9 @@ def read_GSCI_summary_tables(product):
             df['Strat'] = '_'.join(k.split('_')[4:])
             metrics = pd.concat([metrics, df], ignore_index=True)
 
-    metrics = metrics.set_index('Strat', drop=True)
-    metrics = metrics.astype('float')
+    if metrics.shape[0]:
+        metrics = metrics.set_index('Strat', drop=True)
+        metrics = metrics.astype('float')
             
     return rpts, metrics
     
@@ -63,12 +64,11 @@ def plot_GSCI_book(filename='./figs/GSCI_spreads.pdf'):
             for fig in rpt_figs:
                 pdf.savefig(fig)
 
-            import pdb
-            pdb.set_trace()
-            
-            met_figs = plot_GSCI_metrics_by_product(metrics)
-            # for fig in met_figs:
-            #     pdf.savefig(fig)
+            print('{}'.format(product))
+
+            if metrics.shape[0]:
+                met_fig = plot_GSCI_metrics_by_product(metrics, product)
+                pdf.savefig(met_fig)
 
         # for strategy,sector_reports in reports_by_sector.items():
         #     for sector,reports in sector_reports.items():
@@ -86,13 +86,11 @@ def plot_GSCI_summ_by_product(reports):
         figs.append(fig)
     return figs
 
-def plot_GSCI_metrics_by_product(metrics):
+def plot_GSCI_metrics_by_product(metrics, product):
 
-    figs = list()
-    for metric in metrics:
-        fig = lib.plot_GSCI_metrics(metric)
-        figs.append(fig)
-    return figs
+    fig = lib.plot_GSCI_metrics(metrics, product)
+
+    return fig
     
 def plot_GSCI_by_sector():
     pass
