@@ -1,4 +1,5 @@
 import pandas as pd
+from functools import partial
 from collections import defaultdict
 from itertools import combinations, permutations
 
@@ -45,7 +46,51 @@ def read_GSCI_summary_tables(product):
             
     return rpts, metrics
 
-def GSCI_summary():
+def merge_sum(df1, df2):
+    if df1.shape[0] == 0:
+        return df2
+    if df2.shape[0] == 0:
+        return df1
+    
+    df = pd.DataFrame(pd.merge(df1[['Date', 'PL']], df2[['Date', 'PL']], on='Date', how='outer', suffixes=['1','2']))
+    df = df.fillna(0)
+    df = pd.DataFrame(df.set_index('Date').sum(axis=1), columns=['PL'])
+    df = df.reset_index(level=0)
+    return df
+
+
+def GSCI_summary_by_prod(substrategy='All'):
+
+    COLS = ['Date', 'Prod', 'Position', 'Dols', 'Settle12', 'PL']
+    metrics_map = {'drawupK'   : partial(lib.max_drawup_levels,   mult=1e-3),
+                   'drawdnK'   : partial(lib.max_drawdown_levels, mult=1e-3),
+                   'meanretK'  : partial(lib.meanret_levels,      mult=1e-3),
+                   'sharpe'    : lib.sharpe_levels,
+                   'updnrat'   : lib.uprat_levels,
+                   'nonnegrat' : lib.nonnegrat_levels,
+                   'freq'      : lib.freq_levels,
+                   'ampl'      : lib.ampl_levels}
+
+
+    # Create monolithic DataFrame?
+
+    reports_all = pd.DataFrame()
+    for product in products:
+        sector = name_map['sector_map'][product]        
+        reports, metrics = read_GSCI_summary_tables(product)
+
+        for report in reports:
+            report['Sector'] = sector
+            reports_all = pd.concat([reports_all, report])
+
+    # Summary by product
+    groups = reports_all.groupby(['Strategy', 'Sector', 'Prod'])
+    summ_by_prod = groups['PL'].agg([(k,v) for k,v in metrics_map.items()])
+
+    return summ_by_prod
+            
+            
+def GSCI_summary(substrategy='All'):
 
     metrics_map = {'drawupK'   : partial(lib.max_drawup_levels,   mult=1e-3),
                    'drawdnK'   : partial(lib.max_drawdown_levels, mult=1e-3),
@@ -56,13 +101,6 @@ def GSCI_summary():
                    'freq'      : lib.freq_levels,
                    'ampl'      : lib.ampl_levels}
     
-    def merge_sum(df1, df2):
-        df = pd.DataFrame(pd.merge(df1[['Date', 'PL']], df2[['Date', 'PL']], on='Date', how='outer', suffixes=['1','2']))
-        df = df.fillna(0)
-        df = pd.DataFrame(df.set_index('Date').sum(axis=1), columns=['PL'])
-        df = df.reset_index(level=0)
-        return df
-
     SUMM_COLS = ['Date', 'Prod', 'PL']
     
     PL_summary = pd.DataFrame(columns=['PL', 'Dols'])
@@ -72,20 +110,22 @@ def GSCI_summary():
     for product in products:
         reports, metrics = read_GSCI_summary_tables(product)
 
+        if substrategy   == 'EST':
+            reports = [report[report['SubStrategy']=='EST'] for report in reports]
+        elif substrategy == 'LIQ':
+            reports = [report[report['SubStrategy']=='LIQ'] for report in reports]
+
         # Create the sector-grouped reports along the way
         sector = name_map['sector_map'][product]
         for report in reports:
-            strategy_short = '_'.join(report['Strategy'].get_values()[0].split('_')[1:])
+            strategy = report['Strategy'].get_values()[0]
             report_short = report[SUMM_COLS]
             report_short['MaxLots'] = max(report['Position'])
             report_short['MaxDols'] = max(report['Dols'])
-            reports_by_sector[strategy_short][sector] = pd.concat([reports_by_sector[strategy_short][sector], report_short])
+            reports_by_sector[strategy][sector] = pd.concat([reports_by_sector[strategy][sector], report_short])
 
             report['PL'] = report['PL'].astype('float')
-            if PL_by_sector[strategy_short][sector].shape[0] == 0:
-                PL_by_sector[strategy_short][sector] = report[['Date', 'PL']]
-            else:
-                PL_by_sector[strategy_short][sector] = merge_sum(PL_by_sector[strategy_short][sector], report[['Date', 'PL']])
+            PL_by_sector[strategy][sector] = merge_sum(PL_by_sector[strategy][sector], report[['Date', 'PL']])
                         
     sectors = list(reports_by_sector['5_linear_5_linear'].keys())
     metrics_by_prod = pd.DataFrame()
@@ -113,6 +153,51 @@ def GSCI_summary():
         metrics_by_sector = pd.concat([metrics_by_sector, m])
 
     return metrics_by_prod, metrics_by_sector
+
+
+def unpickle():
+    WORKING_DIR = '/home/charles/dev/Python/STIR/'
+
+    global prod_ALL_train,   prod_EST_train,   prod_LIQ_train
+    global prod_ALL_all,     prod_EST_all,     prod_LIQ_all
+    global sector_ALL_train, sector_EST_train, sector_LIQ_train
+    global sector_ALL_all,   sector_EST_all,   sector_LIQ_all
+
+    
+    prod_ALL_train = pd.read_pickle(WORKING_DIR + 'figs/prod_ALL_train.pkl')
+    prod_EST_train = pd.read_pickle(WORKING_DIR + 'figs/prod_EST_train.pkl')
+    prod_LIQ_train = pd.read_pickle(WORKING_DIR + 'figs/prod_LIQ_train.pkl')
+
+    sector_ALL_train = pd.read_pickle(WORKING_DIR + 'figs/sector_ALL_train.pkl')
+    sector_EST_train = pd.read_pickle(WORKING_DIR + 'figs/sector_EST_train.pkl')
+    sector_LIQ_train = pd.read_pickle(WORKING_DIR + 'figs/sector_LIQ_train.pkl')
+
+    prod_ALL_all = pd.read_pickle(WORKING_DIR + 'figs/prod_ALL_all.pkl')
+    prod_EST_all = pd.read_pickle(WORKING_DIR + 'figs/prod_EST_all.pkl')
+    prod_LIQ_all = pd.read_pickle(WORKING_DIR + 'figs/prod_LIQ_all.pkl')
+
+    sector_ALL_all = pd.read_pickle(WORKING_DIR + 'figs/sector_ALL_all.pkl')
+    sector_EST_all = pd.read_pickle(WORKING_DIR + 'figs/sector_EST_all.pkl')
+    sector_LIQ_all = pd.read_pickle(WORKING_DIR + 'figs/sector_LIQ_all.pkl')
+    
+if __name__ == '__main__':
+
+    WORKING_DIR = '/home/charles/dev/Python/STIR/'
+    prod_ALL, sector_ALL = GSCI_summary(substrategy='ALL')
+
+    prod_ALL.to_pickle(WORKING_DIR + 'figs/prod_ALL_all.pkl')
+    sector_ALL.to_pickle(WORKING_DIR + 'figs/sector_ALL_all.pkl')    
+    
+    prod_EST, sector_EST = GSCI_summary(substrategy='EST')
+
+    prod_EST.to_pickle(WORKING_DIR + 'figs/prod_EST_all.pkl')
+    sector_EST.to_pickle(WORKING_DIR + 'figs/sector_EST_all.pkl')    
+
+    prod_LIQ, sector_LIQ = GSCI_summary(substrategy='LIQ')
+
+    prod_LIQ.to_pickle(WORKING_DIR + 'figs/prod_LIQ_all.pkl')
+    sector_LIQ.to_pickle(WORKING_DIR + 'figs/sector_LIQ_all.pkl')    
+    
             
             
 

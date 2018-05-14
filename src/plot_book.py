@@ -57,7 +57,8 @@ def plot_GSCI_book(filename='./figs/GSCI_spreads.pdf'):
             # Create the sector-grouped reports along the way
             sector = name_map['sector_map'][product]
             for report in reports:
-                strategy_short = '_'.join(report['Strategy'].get_values()[0].split('_')[1:])
+                # strategy_short_old = '_'.join(report['Strategy'].get_values()[0].split('_')[1:])
+                strategy_short = report['Strategy'].get_values()[0]
                 reports_by_sector[strategy_short][sector].append(report)
                 
             rpt_figs = plot_GSCI_summ_by_product(reports)

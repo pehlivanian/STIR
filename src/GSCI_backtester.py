@@ -292,7 +292,7 @@ class Backtester(Visitor):
             if front_month == back_month and offset == 0:
                 continue
 
-            price = S._create_study(front_month, back_month, offset, train_only=True)
+            price = S._create_study(front_month, back_month, offset, train_only=False)
 
             all_years = sorted(price.keys())
 
@@ -357,7 +357,7 @@ class Backtester(Visitor):
                 est_price_pos['Dols']          = product_dols
                 est_price_pos['Price_mult']    = dols_per_tick
                 est_price_pos['SubStrategy']   = 'EST'
-                est_price_pos.rename(columns = { 'Prod1' : 'Prod' }, inplace=True)                
+                est_price_pos.rename(columns   = { 'Prod1' : 'Prod' }, inplace=True)                
 
                 # Liquidating position
                 liq_dates_df = create_roll_dates(days_after, end_roll_date, establish=False)
@@ -370,7 +370,7 @@ class Backtester(Visitor):
                 liq_price_pos['Dols']          = product_dols
                 liq_price_pos['Price_mult']    = dols_per_tick
                 liq_price_pos['SubStrategy']   = 'LIQ'
-                liq_price_pos.rename(columns = { 'Prod1' : 'Prod' }, inplace=True)
+                liq_price_pos.rename(columns   = { 'Prod1' : 'Prod' }, inplace=True)
 
                 SS = SummStats(est_price_pos)
                 est_price_pos = SS.PL()
@@ -381,16 +381,13 @@ class Backtester(Visitor):
                 portfolio_results = pd.concat([portfolio_results, est_price_pos, liq_price_pos])
 
         portfolio_results['RPDW'] = RPDW
-        portfolio_results['Strategy'] = '_'.join([self._product, self.__repr__()])
+        portfolio_results['Strategy'] = self.__repr__()
 
         portfolio_results = portfolio_results.sort_values('Date')
 
         summ_table_name = '_'.join(['GSCI_strat_summ', self._product, 'DEFAULT', self.__repr__()])
         portfolio_results.to_sql(con=self._DBConn, name=summ_table_name, if_exists='replace', index=False)
 
-        # diffs = pd.Series(np.diff(portfolio_results['PL']))
-        # metrics  = pd.DataFrame({k:[v(diffs)] for k,v in self._metrics_map.items()})
-        
         levels  = pd.Series(portfolio_results['PL']).astype('float')
         metrics  = pd.DataFrame({k:[v(levels)] for k,v in self._metrics_map.items()})
 
@@ -402,12 +399,16 @@ class Backtester(Visitor):
 
 if __name__ == '__main__':
     for product in products:
+
+        print('Product: {} Problem 1'.format(product))
         B1 = Backtester(product, param_obj=Problem_1)
         summ, metrics, summ_table_name, metrics_table_name = B1.backtest_helper()
 
+        print('Product: {} Problem 2'.format(product))
         B2 = Backtester(product, param_obj=Problem_2)
         summ, metrics, summ_table_name, metrics_table_name = B2.backtest_helper()
-        
+
+        print('Product: {} Problem 3'.format(product))        
         B3 = Backtester(product, param_obj=Problem_3)        
         summ, metrics, summ_table_name, metrics_table_name = B3.backtest_helper()
 
