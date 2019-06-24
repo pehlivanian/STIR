@@ -2,6 +2,7 @@ from collections import namedtuple
 import abc
 import datetime
 import bisect
+import logging
 import pandas as pd
 import numpy as np
 from functools import partial
@@ -12,6 +13,9 @@ from pandas.tseries.offsets import CustomBusinessMonthBegin
 from sqlalchemy import create_engine, Table, Column, MetaData
 from sqlalchemy_utils import database_exists, create_database
 from dateutil.relativedelta import relativedelta
+
+import sys
+sys.path.append('../')
 
 import lib
 import db
@@ -32,11 +36,11 @@ verify_years = config_data.verify_years()
 # DB = num closes before first roll close that we start accumulating position
 # acc_method = position accumulation method:
 #        { 'linear' : proportional accumulation
-#         'bullet' : immediate accumulation }
+#          'bullet' : immediate accumulation }
 # DA = num closes after last roll close that we start liquidating position
 # liq_method = position liquidation method:
 #        { 'linear' : proportional accumulation
-#         'bullet' : immediate accumulation }
+#          'bullet' : immediate accumulation }
 
 class Singleton(type):
     _instances = {}
@@ -49,7 +53,6 @@ class Credentials(metaclass=Singleton):
 
     def __init__(self):
         client = MongoClient()
-
         self._coll = client.STIR.get_collection('credentials')
     
     def DB_creds(self, db_override=None):
@@ -63,7 +66,7 @@ class Credentials(metaclass=Singleton):
         creds = self._coll.find_one()
         return creds['quandl']['api_key']
 
-Param = namedtuple('Param', ['DB', 'acc_method', 'DA', 'liq_method'])
+Param = namedtuple('Param', ['DB', 'acc_method', 'DA', 'liq_method', 'DBE'])
 
 contract_month_map = dict(zip('FGHJKMNQUVXZ', range(1,13)))
 
@@ -71,49 +74,45 @@ GSCI_comp = { 'Product' : ['W', 'KW', 'C', 'S', 'KC', 'SB', 'CC', 'CT', 'LH', 'L
                            'FC', 'CL', 'HO', 'RB', 'B', 'G', 'NG', 'MAL', 'MCU', \
                            'MNI', 'MPB', 'MZN', 'GC', 'SI'],
               'Exchage' : ['CME'] + ['KBT'] + (['CME'] * 2) + (['ICE'] * 4) + \
-                          (['CME'] * 6) + (['ICE'] * 2) + ['CME'] + (['LME'] * 5) \
-                          + (['CME'] * 2),
+                           (['CME'] * 6) + (['ICE'] * 2) + ['CME'] + (['LME'] * 5) \
+                           + (['CME'] * 2),
               '2016_PDW' : [3.53, 0.88, 4.23, 2.95, 0.94, 1.59, 0.45, 1.19, 2.30, \
                             4.79, 1.55, 23.04, 5.21, 5.31, 20.43, 5.82, 3.24, 2.88,\
                             3.85, 0.60, 0.60, 0.88, 3.24, 0.41],
               '2017_RPDW' : [3.90, 1.09, 5.49, 3.78, 1.03, 2.47, 0.58, 1.54, 2.66, \
                              5.08, 1.49, 22.80, 4.06, 4.67, 16.49, 4.91, 3.32, 3.25,\
                              4.06, 0.66, 0.74, 1.00, 4.39, 0.56],
-              '1' :  (['H'] * 8) + (['G'] * 2) + ['H'] + (['G'] * 3) + \
-                                          ['H'] + (['G'] * 8) + ['H'],
-              '2' :  (['H'] * 8) + (['J'] * 2) + (['H'] * 4) + ['J'] + \
-                                          (['H'] * 7) + ['J'] + ['H'],
-              '3' :  (['K'] * 8) + (['J'] * 6) + ['K'] + (['J'] * 8) + \
-                                          ['K'],
-              '4' :  (['K'] * 8) + (['M'] * 2) + (['K'] * 4) + ['M'] + \
-                                          (['K'] * 7) + ['M'] + ['K'],
-              '5' :  (['N'] * 8) + (['M'] * 2) + ['Q'] + (['M'] * 3) + \
-                                          ['N'] + (['M'] * 8) + ['N'],
-              '6' :  (['N'] * 9) + (['Q'] * 2) + (['N'] * 3) + ['Q'] + \
-                                          (['N'] * 7) + ['Q'] + ['N'],
-              '7' :  (['U'] * 3) + ['X'] + ['U']+ ['V'] + ['U'] + ['Z'] + \
-                                          (['Q'] * 6) + ['U'] + (['Q'] * 8) + ['U'],
-              '8' :  (['U'] * 3) + ['X'] + ['U']+ ['V'] + ['U'] + ['Z'] + \
-                                          (['V'] * 2) + (['U'] * 4) + ['V'] + (['U'] * 7) + \
-                                           ['Z'] + ['U'],
-              '9' :  (['Z'] * 3) + ['X'] + ['Z']+ ['V'] + (['Z'] * 2) + \
-                                          (['V'] * 7) + (['V'] * 7) + (['Z'] * 2),
-              '10' : (['Z'] * 3) + ['X'] + ['Z']+ ['H'] + (['Z'] * 4) + \
-                                          (['X'] * 4) + ['Z'] + (['X'] * 7) + (['Z'] * 2),
-              '11' : (['Z'] * 3) + ['F'] + ['Z']+ ['H'] + (['Z'] * 4) + \
-                                          ['F'] + (['Z'] * 3) + ['F'] + (['Z'] * 9),
-              '12' : (['H'] * 3) + ['F'] + (['H'] * 4) + (['G'] * 2) + (['F'] * 4) + \
-                                          ['G'] + (['F'] * 7) + ['G'] + ['H']              
+              '1' :  (['H'] * 8) + (['G'] * 2) + ['H'] + (['G'] * 3) + ['H'] + (['G'] * 8) + ['H'],
+              '2' :  (['H'] * 8) + (['J'] * 2) + (['H'] * 4) + ['J'] + (['H'] * 7) + ['J'] + ['H'],
+              '3' :  (['K'] * 8) + (['J'] * 6) + ['K'] + (['J'] * 8) + ['K'],
+              '4' :  (['K'] * 8) + (['M'] * 2) + (['K'] * 4) + ['M'] + (['K'] * 7) + ['M'] + ['K'],
+              '5' :  (['N'] * 8) + (['M'] * 2) + ['Q'] + (['M'] * 3) + ['N'] + (['M'] * 8) + ['N'],
+              '6' :  (['N'] * 9) + (['Q'] * 2) + (['N'] * 3) + ['Q'] + (['N'] * 7) + ['Q'] + ['N'],
+              '7' :  (['U'] * 3) + ['X'] + ['U']+ ['V'] + ['U'] + ['Z'] + (['Q'] * 6) + ['U'] + (['Q'] * 8) + ['U'],
+              '8' :  (['U'] * 3) + ['X'] + ['U']+ ['V'] + ['U'] + ['Z'] + (['V'] * 2) + (['U'] * 4) + ['V'] + (['U'] * 7) + ['Z'] + ['U'],
+              '9' :  (['Z'] * 3) + ['X'] + ['Z']+ ['V'] + (['Z'] * 2) + (['V'] * 7) + (['V'] * 7) + (['Z'] * 2),
+              '10' : (['Z'] * 3) + ['X'] + ['Z']+ ['H'] + (['Z'] * 4) + (['X'] * 4) + ['Z'] + (['X'] * 7) + (['Z'] * 2),
+              '11' : (['Z'] * 3) + ['F'] + ['Z']+ ['H'] + (['Z'] * 4) + ['F'] + (['Z'] * 3) + ['F'] + (['Z'] * 9),
+              '12' : (['H'] * 3) + ['F'] + (['H'] * 4) + (['G'] * 2) + (['F'] * 4) + ['G'] + (['F'] * 7) + ['G'] + ['H']              
               }
 
 GSCI_comp     = pd.DataFrame(GSCI_comp)
 GSCI_products = GSCI_comp['Product'].get_values() 
 
 def roll_spread_months(product, month):
+    ''' Returns front month, back month as contract letter
+    for the product roll during the give calendar month
+    letter.
+    
+    offset      == 1 ===> front month occurs in current calendar year, back
+                          month appears in following year
+    year_offset == 1 ===> front month and back month occur in following calendar
+                          year
+    '''
     
     front_month = str(month)
     back_month  = str(1+(month%12))
-    GSCI_comp_row = GSCI_comp[GSCI_comp['Product'] == product]
+    GSCI_comp_row = GSCI_comp.loc[GSCI_comp['Product'] == product]
 
     offset, year_offset = 0,0
 
@@ -184,38 +183,64 @@ def create_roll_dates(days_offset, roll_date, establish=True):
 
     return df_dates
 
+def create_pos( dates, price, lots, foll_year, product_dols, dols_per_tick, establishing):
+    if establishing:
+        pos_df = pd.DataFrame({ 'Position' : np.linspace(0, -1*lots, 1+dates.shape[0])[1:] })
+    else:
+        pos_df = pd.DataFrame({ 'Position' : np.linspace(1*lots, 0, 1+dates.shape[0])[:-1] })
+    pos_df = pd.concat([dates, pos_df], axis=1)
+    price_pos = pd.merge(pos_df, price[foll_year], how='left', indicator=True)[['Date', 'Prod1', 'Month1', 'Month2', 'Offset',
+                                                                    'Settle1', 'Settle2', 'Position', 'Settle12', '_merge']]
+
+    price_pos = price_pos.dropna(how='any')
+    if price_pos.shape[0] != dates.shape[0]:
+        # Recalculate weights
+        if establishing:
+            price_pos['Position'] = np.linspace(0, -1*lots, 1+price_pos.shape[0])[1:]
+        else:
+            price_pos['Position'] = np.linspace(1*lots, 0, 1+price_pos.shape[0])[:-1]
+        
+    price_pos['Dols']          = product_dols
+    price_pos['Price_mult']    = dols_per_tick
+    price_pos['SubStrategy']   = 'EST' if establishing else 'LIQ'
+    price_pos.rename(columns   = { 'Prod1' : 'Prod' }, inplace=True)
+
+    
+    
+    return price_pos
+    
+
 class SummStats(object):
     def __init__(self, price_pos):
         self._price_pos = price_pos
 
         self.summary_stats()
 
+    def _pl_series(self):
+        return np.concatenate([[0], self._price_pos['Price_mult'][:-1] * self._price_pos['Position'][:-1] \
+                               * np.diff(self._price_pos['Settle12'])])
     def summary_stats(self):
         try:
-            self._price_pos['PL'] = np.concatenate([[0], self._price_pos['Position'][:-1] * np.diff(self._price_pos['Settle12'])])
+            self._price_pos['PL'] = self._pl_series()
         except TypeError:
             self._price_pos['Settle12'] = self._price_pos['Settle12'].apply(lambda x: float(x))
-            self._price_pos['PL'] = np.concatenate([[0], self._price_pos['Price_mult'][:-1] * self._price_pos['Position'][:-1] * np.diff(self._price_pos['Settle12'])])            
+            self._price_pos['PL'] = self._pl_series()
     def PL(self):
         return self._price_pos
-    
-        
-    
-class Problem_1(object):
-    def __init__(self):
-        pass
 
+class Params(object):
+    def __call__(self):
+        return tuple(self.params())
+    
+class Problem_1(Params):
     @staticmethod
     def params():
-        return Param(DB=5, acc_method='linear', DA=5, liq_method='linear')
+        return Param(DB=5, acc_method='linear', DA=5, liq_method='linear', DBE=2)
 
-class Problem_2(object):
-    def __init__(self):
-        pass
-
+class Problem_2(Params):
     @staticmethod
     def params():
-        return Param(DB=10, acc_method='linear', DA=10, liq_method='linear')        
+        return Param(DB=10, acc_method='linear', DA=10, liq_method='linear', DBE=2)        
 
 class Problem_3(object):
     def __init__(self):
@@ -223,7 +248,7 @@ class Problem_3(object):
 
     @staticmethod
     def params():
-        return Param(DB=2, acc_method='linear', DA=10, liq_method='linear')        
+        return Param(DB=2, acc_method='linear', DA=10, liq_method='linear', DBE=2)        
 
 class Visitor(metaclass=abc.ABCMeta):
     def __init__(self):
@@ -234,7 +259,7 @@ class Visitor(metaclass=abc.ABCMeta):
         pass
 
 class Backtester(Visitor):
-    def __init__(self, product, param_obj=Problem_1):
+    def __init__(self, product, param_obj=Problem_1()):
         self._product     = product
         self._exchange    = name_map['exch_map'][self._product]
         self._credentials = Credentials()
@@ -249,6 +274,7 @@ class Backtester(Visitor):
         self._db_name = '_'.join(['STIR', self._exchange, self._product, 'SUMM'])
         self._SpreadObj = lib.Spread(product)
         self._DBConn = self._DB_conn(*self._credentials.DB_creds(db_override=self._db_name))
+        self._paramObj = param_obj
         self._params = param_obj.params()
 
     @staticmethod
@@ -259,7 +285,9 @@ class Backtester(Visitor):
         return conn
 
     def __repr__(self):
-        return '{}_{}_{}_{}'.format(
+        return '{}@{}: {}_{}_{}_{}'.format(
+            self._product,
+            self._exchange,
             self._params.DB,
             self._params.acc_method,
             self._params.DA,
@@ -277,34 +305,39 @@ class Backtester(Visitor):
         portfolio_results = pd.DataFrame()
 
         RPDW = GSCI_comp[GSCI_comp['Product'] == product]['2017_RPDW'].get_values()[0]
-
-        days_before = self._params.DB
-        days_after  = self._params.DA
-        est_method  = self._params.acc_method
-        liq_method  = self._params.liq_method
+        days_before, est_method, days_after, liq_method, days_before_expiration = self._paramObj()
 
         S = lib.Spread(self._product)
 
         for month_num in range(1,13):
-
             front_month, back_month, offset, year_offset = roll_spread_months(self._product, month_num)
 
             if front_month == back_month and offset == 0:
-                continue
+                log_msg = 'Front month == back month for month number: {}'.format(month_num)
+                logging.warn(log_msg)
+                # XXX
+                # continue
 
-            price = S._create_study(front_month, back_month, offset, train_only=False)
+            try:
+                price = S._create_study(front_month, back_month, offset, train_only=False)
+            except OperationError:
+                logging.warn('Sql connection down for (month, year): ({}, {})'.format( month_num, year))
 
-            all_years = sorted(price.keys())
+                all_years = sorted(price.keys()) 
 
             for year in all_years:
-
-                curr_year = year
-                foll_year = str(int(year)+year_offset)
+                curr_year,foll_year = year, str(int(year)+year_offset)
                 if int(foll_year) > max([int(yr) for yr in all_years]):
-                    continue
+                    log_msg = 'Spread window for (year, month number): ({}, {}) is beyond test period'.format(curr_year, month_num)
+                    logging.warn(log_msg)
+                    # XXX
+                    # continue
 
                 if not isinstance(price[year], pd.DataFrame):
-                    continue
+                    log_msg = 'Price data for year {} missing'.format(year)
+                    logging.warn(log_msg)
+                    # XXX
+                    # continue
                 
                 start_roll_date, end_roll_date = roll_dates_by_month(curr_year, month_num)
 
@@ -321,12 +354,18 @@ class Backtester(Visitor):
                 # the establishing leg of the strategy in the above formula to calculate
                 # holdings according to the percentage given in the RPDW column.
 
-                # Establishing position: calculation of number of units
                 est_dates_df  = create_roll_dates(days_before, start_roll_date)
-
+                liq_dates_df = create_roll_dates(days_after, end_roll_date, establish=False)
+                                
+                # Establishing position: calculation of number of units
                 try:
                     DCRP_ref_date = est_dates_df['Date'].get_values()[0]
                     DCRP = float(price[foll_year][price[foll_year]['Date'] == DCRP_ref_date]['Open1'].get_values()[0])
+                except KeyError:
+                    logging.warn('year {} not contained in price matrix - needed for (month,year): ([], {})calculation'.format(
+                        foll_year,month_num, year))
+                    # XXX
+                    # continue
                 except Exception as e:
                     days_back = 1
                     while days_back < 10:
@@ -344,39 +383,19 @@ class Backtester(Visitor):
                 #                           / DCRP / float(name_map['mult_map'][self._product]), 0)
 
                 # Don't
-                lots              = round(total_dollars * (RPDW / 100) / float(name_map['lotsize_map'][self._product])
-                                          / DCRP / float(name_map['mult_map'][self._product]), 0)
+                lots              = total_dollars * (RPDW / 100) / float(name_map['lotsize_map'][self._product]) / DCRP / float(name_map['mult_map'][self._product])
                 
                 product_dols      = total_dollars * (RPDW / 100)
                 dols_per_tick     = float(name_map['lotsize_map'][self._product]) * float(name_map['mult_map'][self._product])
 
-                pos_df = pd.DataFrame({ 'Position' : np.linspace(0, -1*lots, 1+est_dates_df.shape[0])[1:] })
-                pos_df = pd.concat([est_dates_df, pos_df], axis=1)
-                est_price_pos = pd.merge(pos_df, price[foll_year], how='left')[['Date', 'Prod1', 'Month1', 'Month2', 'Offset',
-                                                                                'Settle1', 'Settle2', 'Position', 'Settle12']]
-                est_price_pos['Dols']          = product_dols
-                est_price_pos['Price_mult']    = dols_per_tick
-                est_price_pos['SubStrategy']   = 'EST'
-                est_price_pos.rename(columns   = { 'Prod1' : 'Prod' }, inplace=True)                
+
+                # Establishing position
+                est_price_pos = create_pos( est_dates_df, price, lots, foll_year, product_dols, dols_per_tick, True)
 
                 # Liquidating position
-                liq_dates_df = create_roll_dates(days_after, end_roll_date, establish=False)
-                pos_df = pd.DataFrame({ 'Position' : np.linspace(1*lots, 0,
-                                                                 1+liq_dates_df.shape[0])[:-1] })
-                pos_df = pd.concat([liq_dates_df, pos_df], axis=1)
-                liq_price_pos = pd.merge(pos_df, price[foll_year],
-                                        how='left')[['Date', 'Prod1', 'Month1', 'Month2', 'Offset', 'Settle1', 'Settle2', \
-                                                      'Position', 'Settle12']]
-                liq_price_pos['Dols']          = product_dols
-                liq_price_pos['Price_mult']    = dols_per_tick
-                liq_price_pos['SubStrategy']   = 'LIQ'
-                liq_price_pos.rename(columns   = { 'Prod1' : 'Prod' }, inplace=True)
+                liq_price_pos = create_pos( liq_dates_df, price, lots, foll_year, product_dols, dols_per_tick, False)
 
-                SS = SummStats(est_price_pos)
-                est_price_pos = SS.PL()
-
-                SS = SummStats(liq_price_pos)
-                liq_price_pos = SS.PL()
+                est_price_pos, liq_price_pos = SummStats(est_price_pos).PL(), SummStats(liq_price_pos).PL()
 
                 portfolio_results = pd.concat([portfolio_results, est_price_pos, liq_price_pos])
 
@@ -390,7 +409,7 @@ class Backtester(Visitor):
 
         levels  = pd.Series(portfolio_results['PL']).astype('float')
         metrics  = pd.DataFrame({k:[v(levels)] for k,v in self._metrics_map.items()})
-
+        
         metrics_table_name = '_'.join(['GSCI_strat_metrics', self._product, 'DEFAULT', self.__repr__()])
         metrics.to_sql(con=self._DBConn, name=metrics_table_name, if_exists='replace', index=False)
 
@@ -398,19 +417,22 @@ class Backtester(Visitor):
     
 
 if __name__ == '__main__':
+
+    products = ['CL']
+    
     for product in products:
 
         print('Product: {} Problem 1'.format(product))
-        B1 = Backtester(product, param_obj=Problem_1)
+        B1 = Backtester(product, param_obj=Problem_1())
         summ, metrics, summ_table_name, metrics_table_name = B1.backtest_helper()
 
-        print('Product: {} Problem 2'.format(product))
-        B2 = Backtester(product, param_obj=Problem_2)
-        summ, metrics, summ_table_name, metrics_table_name = B2.backtest_helper()
+        # print('Product: {} Problem 2'.format(product))
+        # B2 = Backtester(product, param_obj=Problem_2())
+        # summ, metrics, summ_table_name, metrics_table_name = B2.backtest_helper()
 
-        print('Product: {} Problem 3'.format(product))        
-        B3 = Backtester(product, param_obj=Problem_3)        
-        summ, metrics, summ_table_name, metrics_table_name = B3.backtest_helper()
+        # print('Product: {} Problem 3'.format(product))        
+        # B3 = Backtester(product, param_obj=Problem_3())        
+        # summ, metrics, summ_table_name, metrics_table_name = B3.backtest_helper()
 
         print('{} FINISHED: WROTE TO TABLE: {}'.format(product, summ_table_name))
 
