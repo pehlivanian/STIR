@@ -1,9 +1,13 @@
-from .read_meta_quandl import all_products
-from .read_meta_quandl import all_nrbys
-from .read_meta_quandl import all_months
-from .read_meta_quandl import all_years
-from .read_meta_quandl import all_fields
-from .read_meta_quandl import all_names
-from .read_meta_quandl import train_years
-from .read_meta_quandl import test_years
-from .read_meta_quandl import verify_years
+from .read_meta_quandl import ( all_products, all_nrbys, all_months, all_years, all_fields, all_names, train_years, test_years, verify_years )
+from .GSCI import GSCIData
+
+products     = all_products()
+nrbys        = all_nrbys()
+months       = all_months()
+years        = all_years()
+fields       = all_fields()
+name_map     = all_names()
+train_years  = train_years()
+test_years   = test_years()
+verify_years = verify_years()
+

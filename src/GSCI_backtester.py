@@ -13,24 +13,10 @@ from pandas.tseries.offsets import CustomBusinessMonthBegin
 from sqlalchemy import create_engine, Table, Column, MetaData
 from sqlalchemy_utils import database_exists, create_database
 from dateutil.relativedelta import relativedelta
-
-import sys
-sys.path.append('../')
-
+from data import (products, nrbys, months, years, fields, name_map, train_years, test_years, verify_years)
+from data import GSCIData
 import lib
 import db
-import data as config_data
-
-products     = config_data.all_products()
-nrbys        = config_data.all_nrbys()
-months       = config_data.all_months()
-years        = config_data.all_years()
-fields       = config_data.all_fields()
-name_map     = config_data.all_names()
-train_years  = config_data.train_years()
-test_years   = config_data.test_years()
-verify_years = config_data.verify_years()
-
 
 # In order
 # DB = num closes before first roll close that we start accumulating position
@@ -41,6 +27,7 @@ verify_years = config_data.verify_years()
 # liq_method = position liquidation method:
 #        { 'linear' : proportional accumulation
 #          'bullet' : immediate accumulation }
+# DBE = num days before expiry we must be flat
 
 class Singleton(type):
     _instances = {}
@@ -70,34 +57,10 @@ Param = namedtuple('Param', ['DB', 'acc_method', 'DA', 'liq_method', 'DBE'])
 
 contract_month_map = dict(zip('FGHJKMNQUVXZ', range(1,13)))
 
-GSCI_comp = { 'Product' : ['W', 'KW', 'C', 'S', 'KC', 'SB', 'CC', 'CT', 'LH', 'LC', \
-                           'FC', 'CL', 'HO', 'RB', 'B', 'G', 'NG', 'MAL', 'MCU', \
-                           'MNI', 'MPB', 'MZN', 'GC', 'SI'],
-              'Exchage' : ['CME'] + ['KBT'] + (['CME'] * 2) + (['ICE'] * 4) + \
-                           (['CME'] * 6) + (['ICE'] * 2) + ['CME'] + (['LME'] * 5) \
-                           + (['CME'] * 2),
-              '2016_PDW' : [3.53, 0.88, 4.23, 2.95, 0.94, 1.59, 0.45, 1.19, 2.30, \
-                            4.79, 1.55, 23.04, 5.21, 5.31, 20.43, 5.82, 3.24, 2.88,\
-                            3.85, 0.60, 0.60, 0.88, 3.24, 0.41],
-              '2017_RPDW' : [3.90, 1.09, 5.49, 3.78, 1.03, 2.47, 0.58, 1.54, 2.66, \
-                             5.08, 1.49, 22.80, 4.06, 4.67, 16.49, 4.91, 3.32, 3.25,\
-                             4.06, 0.66, 0.74, 1.00, 4.39, 0.56],
-              '1' :  (['H'] * 8) + (['G'] * 2) + ['H'] + (['G'] * 3) + ['H'] + (['G'] * 8) + ['H'],
-              '2' :  (['H'] * 8) + (['J'] * 2) + (['H'] * 4) + ['J'] + (['H'] * 7) + ['J'] + ['H'],
-              '3' :  (['K'] * 8) + (['J'] * 6) + ['K'] + (['J'] * 8) + ['K'],
-              '4' :  (['K'] * 8) + (['M'] * 2) + (['K'] * 4) + ['M'] + (['K'] * 7) + ['M'] + ['K'],
-              '5' :  (['N'] * 8) + (['M'] * 2) + ['Q'] + (['M'] * 3) + ['N'] + (['M'] * 8) + ['N'],
-              '6' :  (['N'] * 9) + (['Q'] * 2) + (['N'] * 3) + ['Q'] + (['N'] * 7) + ['Q'] + ['N'],
-              '7' :  (['U'] * 3) + ['X'] + ['U']+ ['V'] + ['U'] + ['Z'] + (['Q'] * 6) + ['U'] + (['Q'] * 8) + ['U'],
-              '8' :  (['U'] * 3) + ['X'] + ['U']+ ['V'] + ['U'] + ['Z'] + (['V'] * 2) + (['U'] * 4) + ['V'] + (['U'] * 7) + ['Z'] + ['U'],
-              '9' :  (['Z'] * 3) + ['X'] + ['Z']+ ['V'] + (['Z'] * 2) + (['V'] * 7) + (['V'] * 7) + (['Z'] * 2),
-              '10' : (['Z'] * 3) + ['X'] + ['Z']+ ['H'] + (['Z'] * 4) + (['X'] * 4) + ['Z'] + (['X'] * 7) + (['Z'] * 2),
-              '11' : (['Z'] * 3) + ['F'] + ['Z']+ ['H'] + (['Z'] * 4) + ['F'] + (['Z'] * 3) + ['F'] + (['Z'] * 9),
-              '12' : (['H'] * 3) + ['F'] + (['H'] * 4) + (['G'] * 2) + (['F'] * 4) + ['G'] + (['F'] * 7) + ['G'] + ['H']              
-              }
 
-GSCI_comp     = pd.DataFrame(GSCI_comp)
-GSCI_products = GSCI_comp['Product'].get_values() 
+GSCI_data     = GSCIData()
+GSCI_comp     = GSCI_data.GSCI_comp
+GSCI_products = GSCI_data.products
 
 def roll_spread_months(product, month):
     ''' Returns front month, back month as contract letter
@@ -308,15 +271,14 @@ class Backtester(Visitor):
         days_before, est_method, days_after, liq_method, days_before_expiration = self._paramObj()
 
         S = lib.Spread(self._product)
-
+        
         for month_num in range(1,13):
             front_month, back_month, offset, year_offset = roll_spread_months(self._product, month_num)
 
             if front_month == back_month and offset == 0:
                 log_msg = 'Front month == back month for month number: {}'.format(month_num)
                 logging.warn(log_msg)
-                # XXX
-                # continue
+                continue
 
             try:
                 price = S._create_study(front_month, back_month, offset, train_only=False)
@@ -330,14 +292,12 @@ class Backtester(Visitor):
                 if int(foll_year) > max([int(yr) for yr in all_years]):
                     log_msg = 'Spread window for (year, month number): ({}, {}) is beyond test period'.format(curr_year, month_num)
                     logging.warn(log_msg)
-                    # XXX
-                    # continue
+                    continue
 
                 if not isinstance(price[year], pd.DataFrame):
                     log_msg = 'Price data for year {} missing'.format(year)
                     logging.warn(log_msg)
-                    # XXX
-                    # continue
+                    continue
                 
                 start_roll_date, end_roll_date = roll_dates_by_month(curr_year, month_num)
 
@@ -364,8 +324,7 @@ class Backtester(Visitor):
                 except KeyError:
                     logging.warn('year {} not contained in price matrix - needed for (month,year): ([], {})calculation'.format(
                         foll_year,month_num, year))
-                    # XXX
-                    # continue
+                    continue
                 except Exception as e:
                     days_back = 1
                     while days_back < 10:
@@ -418,8 +377,6 @@ class Backtester(Visitor):
 
 if __name__ == '__main__':
 
-    products = ['CL']
-    
     for product in products:
 
         print('Product: {} Problem 1'.format(product))

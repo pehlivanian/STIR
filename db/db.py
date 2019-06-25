@@ -14,18 +14,7 @@ from sqlalchemy import create_engine, Table, Column, MetaData
 from sqlalchemy_utils import database_exists, create_database
 from contextlib import contextmanager
 
-import data as config_data
-
-products     = config_data.all_products()
-nrbys        = config_data.all_nrbys()
-months       = config_data.all_months()
-years        = config_data.all_years()
-fields       = config_data.all_fields()
-name_map     = config_data.all_names()
-train_years  = config_data.train_years()
-test_years   = config_data.test_years()
-verify_years = config_data.verify_years()
-
+from data import *
 
 logging.basicConfig()
 logging.getLogger().setLevel(logging.WARN)

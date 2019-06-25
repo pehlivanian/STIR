@@ -1,4 +1,3 @@
-import data as config_data
 import pandas as pd
 from collections import defaultdict
 
@@ -8,17 +7,21 @@ from sqlalchemy import create_engine, Table, Column, MetaData, inspect
 from sqlalchemy_utils import database_exists, create_database
 from contextlib import contextmanager
 
-import db
+import sys
+sys.path.append('../')
 
-products     = config_data.all_products()
-nrbys        = config_data.all_nrbys()
-months       = config_data.all_months()
-years        = config_data.all_years()
-fields       = config_data.all_fields()
-name_map     = config_data.all_names()
-train_years  = config_data.train_years()
-test_years   = config_data.test_years()
-verify_years = config_data.verify_years()
+import db
+import data
+
+products     = data.all_products
+nrbys        = data.all_nrbys
+months       = data.all_months
+years        = data.all_years
+fields       = data.all_fields
+name_map     = data.all_names
+train_years  = data.train_years
+test_years   = data.test_years
+verify_years = data.verify_years
 
 class Singleton(type):
     _instances = {}

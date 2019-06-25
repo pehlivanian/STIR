@@ -1,12 +1,12 @@
 import pandas as pd
 
 from db import DBExt
-import data as config_data
+import data
 
-name_map     = config_data.all_names()
-train_years  = config_data.train_years()
-test_years   = config_data.test_years()
-verify_years = config_data.verify_years()
+name_map     = data.name_map
+train_years  = data.train_years
+test_years   = data.test_years
+verify_years = data.verify_years
 
 class Element(object):
     def __init__(self):
@@ -47,6 +47,8 @@ class Spread(object):
         return df1, df2
     
     def _create_spread(self, spread_key):
+        ''' Create spread dataframe
+        '''
 
         df1, df2 = self._get_spread_pair(spread_key['mth1'], spread_key['yr1'], spread_key['mth2'], spread_key['yr2'])
 
