@@ -18,5 +18,8 @@ X
 y
 *~
 src/metastore_db/seg0/*.dat
+db/*.pkl
+db/*.pdf
+
 
 
