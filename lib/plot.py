@@ -10,9 +10,38 @@ import subprocess
 import re
 import os
 
+def plot_GSCI_summ_all(reports, title=''):
+
+    fig, axis = plt.subplots()
+    fig.set_size_inches(9, 5)
+
+    axis.set_title(title)
+
+    axis.set_xlabel('Date')
+    axis.set_ylabel('PL ($)')
+    
+
+    for summ in reports:
+        strategy_name = summ.loc[0, 'Strategy']
+        df = summ[['Date', 'PL']]
+        df['PL'] = df['PL'].apply(pd.to_numeric)
+        df = df.dropna(how='any')
+        
+        df.Date = pd.to_datetime(df['Date'], format='%Y-%m-%d')
+        df.set_index(['Date'], inplace=True)
+
+        df['PL'] = np.cumsum(df['PL'])
+        df = df.rename(columns={'PL': strategy_name })
+
+        df.plot(legend=True, grid=True, ax=axis)
+
+    return fig, axis    
+        
 def plot_GSCI_summ(summ):
 
     fig = plt.figure()
+    fig.set_size_inches(9, 5)
+        
 
     subplot_ind = 211
     
@@ -78,9 +107,10 @@ def plot_GSCI_summ(summ):
 
     return fig
 
-def plot_GSCI_metrics(metrics, product):
+def plot_GSCI_metrics(metrics, product ):
 
     fig = plt.figure()
+    fig.set_size_inches(9, 5)
 
     subplot_ind = 111
     axis = fig.add_subplot(subplot_ind)
@@ -109,6 +139,8 @@ def plot_spreads(df):
     subplotInd = 231
 
     fig = plt.figure()
+    fig.set_size_inches(9, 5)
+        
     fig.subplots_adjust(bottom=0.05)
     fig.subplots_adjust(hspace=0.1)
     fig.subplots_adjust(top=0.95)

@@ -35,9 +35,31 @@ def read_GSCI_summary_tables(product):
         metrics = metrics.astype('float')
             
     return rpts, metrics
+
+def plot_GSCI_book_combined(filename='./figs/GSCI_spreads_combined.pdf'):
+
+    # XXX
+    products = ['CL', 'NG']
+    
+    with PdfPages(filename) as pdf:
+        for product in products:
+            reports_by_sector = defaultdict(lambda: defaultdict(list))
+            reports,metrics = read_GSCI_summary_tables(product)
+            
+            exchange =  name_map['exch_map'][product]
+            sector = name_map['sector_map'][product]
+            title = product + ' ' + exchange + ' : ' + sector
+            fig,_ = lib.plot_GSCI_summ_all(reports, title=title)
+    
+            pdf.savefig(fig)
+
+            if metrics.shape[0]:
+                fig = plot_GSCI_metrics_by_product(metrics, product)
+                pdf.savefig(fig)
+
+            print('{}'.format(product))                        
     
 def plot_GSCI_book(filename='./figs/GSCI_spreads.pdf'):
-
     reports_by_sector = defaultdict(lambda: defaultdict(list))
     reports, metrics = read_GSCI_summary_tables(product)
     
@@ -67,7 +89,10 @@ def plot_GSCI_book(filename='./figs/GSCI_spreads.pdf'):
         #         print('BOMB')
                     
                     
-               
+
+def plot_GSCI_summ_by_product_combined(reports):
+    lib.plot_GSCI_summ_all(reports)
+        
 def plot_GSCI_summ_by_product(reports):
 
     figs = list()
