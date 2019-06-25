@@ -267,7 +267,7 @@ class Backtester(Visitor):
 
         portfolio_results = pd.DataFrame()
 
-        RPDW = GSCI_comp[GSCI_comp['Product'] == product]['2017_RPDW'].get_values()[0]
+        RPDW = GSCI_comp[GSCI_comp['Product'] == self._product]['2017_RPDW'].get_values()[0]
         days_before, est_method, days_after, liq_method, days_before_expiration = self._paramObj()
 
         S = lib.Spread(self._product)
@@ -285,7 +285,7 @@ class Backtester(Visitor):
             except OperationError:
                 logging.warn('Sql connection down for (month, year): ({}, {})'.format( month_num, year))
 
-                all_years = sorted(price.keys()) 
+            all_years = sorted(price.keys()) 
 
             for year in all_years:
                 curr_year,foll_year = year, str(int(year)+year_offset)
@@ -375,8 +375,7 @@ class Backtester(Visitor):
         return portfolio_results, metrics, summ_table_name, metrics_table_name
     
 
-if __name__ == '__main__':
-
+def backtest(products=products):
     for product in products:
 
         print('Product: {} Problem 1'.format(product))

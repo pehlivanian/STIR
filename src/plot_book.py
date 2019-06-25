@@ -38,9 +38,6 @@ def read_GSCI_summary_tables(product):
 
 def plot_GSCI_book_combined(filename='./figs/GSCI_spreads_combined.pdf'):
 
-    # XXX
-    products = ['CL', 'NG']
-    
     with PdfPages(filename) as pdf:
         for product in products:
             reports_by_sector = defaultdict(lambda: defaultdict(list))
@@ -145,6 +142,6 @@ def plot_book_by_product(product, max_offset=2, filename='./all_spreads.pdf'):
                     except Exception as e:
                         continue
 
-if __name__ == '__main__':
-    # plot_book()
-    plot_GSCI_book()
+# if __name__ == '__main__':
+#     # plot_book()
+#     # plot_GSCI_book()
