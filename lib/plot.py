@@ -35,6 +35,38 @@ def plot_GSCI_summ_all(reports, title=''):
 
         df.plot(legend=True, grid=True, ax=axis)
 
+    return fig, axis
+
+
+def plot_GSCI_summ_bystrat_all(reports, strategy, title=''):
+
+    fig, axis = plt.subplots()
+    fig.set_size_inches(9, 5)
+
+    axis.set_title(title)
+
+    axis.set_xlabel('Date')
+    axis.set_ylabel('PL ($)')
+
+    for summ in reports:
+        df = summ[['Date', 'PL', 'SubStrategy']]
+        df['PL'] = df['PL'].apply(pd.to_numeric)
+        df = df.dropna(how='any')    
+
+        df['PL_strat'] = 0
+        pl_mask = df['SubStrategy'] == strategy
+        df['PL_strat'] = df[pl_mask]['PL']
+        df['PL_strat'] = np.cumsum(df['PL_strat'])
+        
+        df.Date = pd.to_datetime(df['Date'], format='%Y-%m-%d')
+        df.set_index(['Date'], inplace=True)
+        
+        df[['PL_strat']].plot(legend=True, grid=True, ax=axis)
+
+        axis.set_title(title)
+        axis.set_xlabel('Date')
+        axis.set_ylabel('PL ($)')
+
     return fig, axis    
         
 def plot_GSCI_summ(summ):

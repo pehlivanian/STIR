@@ -42,13 +42,19 @@ def plot_GSCI_book_combined(filename='./figs/GSCI_spreads_combined.pdf'):
         for product in products:
             reports_by_sector = defaultdict(lambda: defaultdict(list))
             reports,metrics = read_GSCI_summary_tables(product)
-            
-            exchange =  name_map['exch_map'][product]
-            sector = name_map['sector_map'][product]
-            title = product + ' ' + exchange + ' : ' + sector
-            fig,_ = lib.plot_GSCI_summ_all(reports, title=title)
-    
-            pdf.savefig(fig)
+            base_title = product + ' ' + exchange + ' : ' + sector
+
+            if reports:
+                exchange =  name_map['exch_map'][product]
+                sector = name_map['sector_map'][product]
+                title = base_title
+                fig,_ = lib.plot_GSCI_summ_all(reports, title=title)
+                pdf.savefig(fig)
+
+                for strategy in ['EST', 'LIQ']:
+                    title = base_title + '_by_strategy: {}'.format(strategy)
+                    fig,_ = lib.plot_GSCI_summ_bystrat_all(reports, strategy, title=title)
+                    pdf.savefig(fig)
 
             if metrics.shape[0]:
                 fig = plot_GSCI_metrics_by_product(metrics, product)
