@@ -205,7 +205,7 @@ class Problem_2(Params):
     def params():
         return Param(DB=10, acc_method='linear', DA=10, liq_method='linear', DBE=2)        
 
-class Problem_3(object):
+class Problem_3(Params):
     def __init__(self):
         pass
 
@@ -375,20 +375,20 @@ class Backtester(Visitor):
         return portfolio_results, metrics, summ_table_name, metrics_table_name
     
 
-def backtest(products=products):
+def GSCI_backtest(products=products):
     for product in products:
 
-        print('Product: {} Problem 1'.format(product))
-        B1 = Backtester(product, param_obj=Problem_1())
-        summ, metrics, summ_table_name, metrics_table_name = B1.backtest_helper()
+        # print('Product: {} Problem 1'.format(product))
+        # B1 = Backtester(product, param_obj=Problem_1())
+        # summ, metrics, summ_table_name, metrics_table_name = B1.backtest_helper()
 
-        # print('Product: {} Problem 2'.format(product))
-        # B2 = Backtester(product, param_obj=Problem_2())
-        # summ, metrics, summ_table_name, metrics_table_name = B2.backtest_helper()
+        print('Product: {} Problem 2'.format(product))
+        B2 = Backtester(product, param_obj=Problem_2())
+        summ, metrics, summ_table_name, metrics_table_name = B2.backtest_helper()
 
-        # print('Product: {} Problem 3'.format(product))        
-        # B3 = Backtester(product, param_obj=Problem_3())        
-        # summ, metrics, summ_table_name, metrics_table_name = B3.backtest_helper()
+        print('Product: {} Problem 3'.format(product))        
+        B3 = Backtester(product, param_obj=Problem_3())        
+        summ, metrics, summ_table_name, metrics_table_name = B3.backtest_helper()
 
         print('{} FINISHED: WROTE TO TABLE: {}'.format(product, summ_table_name))
 
