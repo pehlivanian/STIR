@@ -67,25 +67,41 @@ def freq(s):
     ps = np.abs(np.fft.rfft(s.fillna(0)))
     freq = np.fft.fftfreq(len(s), 1)
     ps/=sum(ps)
-    return max(zip(freq[1:],ps[1:]), key=lambda x:x[1])[0]
+    try:
+        m = max(zip(freq[1:],ps[1:]), key=lambda x:x[1])[0]
+    except ValueError:
+        m = np.nan
+    return m
 
 def freq_levels(s):
     ps = np.abs(np.fft.rfft(s.fillna(0)))
     freq = np.fft.fftfreq(len(s), 1)
     ps/=sum(ps)
-    return max(zip(freq[1:],ps[1:]), key=lambda x:x[1])[0]
+    try:
+        m = max(zip(freq[1:],ps[1:]), key=lambda x:x[1])[0]
+    except ValueError:
+        m = np.nan
+    return m
 
 def ampl(s):
     ps = np.abs(np.fft.rfft(s))
     freq = np.fft.fftfreq(len(s), 1)
     ps/=sum(ps)
-    return max(zip(freq[1:],ps[1:]), key=lambda x:x[1])[1]
+    try:
+        m = max(zip(freq[1:],ps[1:]), key=lambda x:x[1])[1]
+    except ValueError:
+        m = np.nan
+    return m
 
 def ampl_levels(s):
     ps = np.abs(np.fft.rfft(s))
     freq = np.fft.fftfreq(len(s), 1)
     ps/=sum(ps)
-    return max(zip(freq[1:],ps[1:]), key=lambda x:x[1])[1]
+    try:
+        m = max(zip(freq[1:],ps[1:]), key=lambda x:x[1])[1]
+    except Exception:
+        m = np.nan
+    return m
 
 def max_Sharpe(s, min_days, up=True):
     d = np.diff(s)

@@ -194,6 +194,14 @@ class SummStats(object):
 class Params(object):
     def __call__(self):
         return tuple(self.params())
+
+    @property
+    def props(self):
+        return dict()
+
+    @property
+    def props_name(self):
+        return ''
     
 class Problem_1(Params):
     @staticmethod
@@ -211,7 +219,71 @@ class Problem_3(Params):
 
     @staticmethod
     def params():
-        return Param(DB=2, acc_method='linear', DA=10, liq_method='linear', DBE=2)        
+        return Param(DB=2, acc_method='linear', DA=10, liq_method='linear', DBE=2)
+
+class Problem_4(Params):
+    def __init__(self):
+        pass
+
+    @staticmethod
+    def params():
+        return Param(DB=5, acc_method='linear', DA=5, liq_method='linear', DBE=2)
+
+    @property
+    def props(self):
+        return dict(liq_if_est_money=True, liq_cutoff=0.5)
+
+    @property
+    def props_name(self):
+        return 'prop_0'
+
+class Problem_5(Params):
+    def __init__(self):
+        pass
+
+    @staticmethod
+    def params():
+        return Param(DB=3, acc_method='linear', DA=10, liq_method='linear', DBE=2)
+
+    @property
+    def props(self):
+        return dict(liq_if_est_money=True, liq_cutoff=1.0)
+
+    @property
+    def props_name(self):
+        return 'prop_0'
+
+class Problem_6(Params):
+    def __init__(self):
+        pass
+
+    @staticmethod
+    def params():
+        return Param(DB=5, acc_method='linear', DA=10, liq_method='linear', DBE=2)
+
+    @property
+    def props(self):
+        return dict(liq_if_est_money=True, liq_cutoff=0.0)
+
+    @property
+    def props_name(self):
+        return 'prop_0'
+
+class Problem_7(Params):
+    def __init__(self):
+        pass
+
+    @staticmethod
+    def params():
+        return Param(DB=10, acc_method='linear', DA=10, liq_method='linear', DBE=2)
+
+    @property
+    def props(self):
+        return dict(liq_if_est_money=True, liq_cutoff=0.0)
+
+    @property
+    def props_name(self):
+        return 'prop_0'
 
 class Visitor(metaclass=abc.ABCMeta):
     def __init__(self):
@@ -239,6 +311,8 @@ class Backtester(Visitor):
         self._DBConn = self._DB_conn(*self._credentials.DB_creds(db_override=self._db_name))
         self._paramObj = param_obj
         self._params = param_obj.params()
+        self._props = param_obj.props
+        self._props_name = param_obj.props_name
 
     @staticmethod
     def _DB_conn(user, passwd, db):
@@ -248,7 +322,7 @@ class Backtester(Visitor):
         return conn
 
     def __repr__(self):
-        return '{}@{}: {}_{}_{}_{}'.format(
+        r = '{}@{}: {}_{}_{}_{}'.format(
             self._product,
             self._exchange,
             self._params.DB,
@@ -256,6 +330,9 @@ class Backtester(Visitor):
             self._params.DA,
             self._params.liq_method
             )
+        if self._props:
+            r += '_{}'.format(self._props_name)
+        return r
 
     def visit(self, element):
         pass
@@ -349,12 +426,22 @@ class Backtester(Visitor):
 
 
                 # Establishing position
-                est_price_pos = create_pos( est_dates_df, price, lots, foll_year, product_dols, dols_per_tick, True)
+                est_price_pos = create_pos(est_dates_df, price, lots, foll_year, product_dols, dols_per_tick, True)
+                est_price_pos = SummStats(est_price_pos).PL()
 
                 # Liquidating position
-                liq_price_pos = create_pos( liq_dates_df, price, lots, foll_year, product_dols, dols_per_tick, False)
-
-                est_price_pos, liq_price_pos = SummStats(est_price_pos).PL(), SummStats(liq_price_pos).PL()
+                if self._props.get('liq_if_est_money', False):
+                    est_levels   = pd.Series(est_price_pos['PL']).astype('float')
+                    est_metrics  = pd.DataFrame({k:[v(est_levels)] for k,v in self._metrics_map.items()})
+                    # No EST positions for this strategy
+                    est_price_pos = None                    
+                    liq_price_pos = None
+                    if est_metrics.loc[0].sharpe > self._props.get('liq_cutoff'):
+                        liq_price_pos = create_pos(liq_dates_df, price, lots, foll_year, product_dols, dols_per_tick, False)
+                        liq_price_pos = SummStats(liq_price_pos).PL()
+                else:
+                    liq_price_pos = create_pos(liq_dates_df, price, lots, foll_year, product_dols, dols_per_tick, False)
+                    liq_price_pos = SummStats(liq_price_pos).PL()                    
 
                 portfolio_results = pd.concat([portfolio_results, est_price_pos, liq_price_pos])
 
@@ -382,13 +469,29 @@ def GSCI_backtest(products=products):
         # B1 = Backtester(product, param_obj=Problem_1())
         # summ, metrics, summ_table_name, metrics_table_name = B1.backtest_helper()
 
-        print('Product: {} Problem 2'.format(product))
-        B2 = Backtester(product, param_obj=Problem_2())
-        summ, metrics, summ_table_name, metrics_table_name = B2.backtest_helper()
+        # print('Product: {} Problem 2'.format(product))
+        # B2 = Backtester(product, param_obj=Problem_2())
+        # summ, metrics, summ_table_name, metrics_table_name = B2.backtest_helper()
 
-        print('Product: {} Problem 3'.format(product))        
-        B3 = Backtester(product, param_obj=Problem_3())        
-        summ, metrics, summ_table_name, metrics_table_name = B3.backtest_helper()
+        # print('Product: {} Problem 3'.format(product))        
+        # B3 = Backtester(product, param_obj=Problem_3())        
+        # summ, metrics, summ_table_name, metrics_table_name = B3.backtest_helper()
+
+        # print('Product: {} Problem 4'.format(product))        
+        # B4 = Backtester(product, param_obj=Problem_4())
+        # summ, metrics, summ_table_name, metrics_table_name = B4.backtest_helper()
+        
+        # print('Product: {} Problem 5'.format(product))        
+        # B5 = Backtester(product, param_obj=Problem_5())
+        # summ, metrics, summ_table_name, metrics_table_name = B5.backtest_helper()
+
+        # print('Product: {} Problem 6'.format(product))        
+        # B6 = Backtester(product, param_obj=Problem_6())
+        # summ, metrics, summ_table_name, metrics_table_name = B6.backtest_helper()
+
+        print('Product: {} Problem 7'.format(product))        
+        B7 = Backtester(product, param_obj=Problem_7())
+        summ, metrics, summ_table_name, metrics_table_name = B7.backtest_helper()
 
         print('{} FINISHED: WROTE TO TABLE: {}'.format(product, summ_table_name))
 

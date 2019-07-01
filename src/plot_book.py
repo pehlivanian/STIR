@@ -42,11 +42,11 @@ def plot_GSCI_book_combined(filename='./figs/GSCI_spreads_combined.pdf'):
         for product in products:
             reports_by_sector = defaultdict(lambda: defaultdict(list))
             reports,metrics = read_GSCI_summary_tables(product)
+            exchange =  name_map['exch_map'][product]
+            sector = name_map['sector_map'][product]
             base_title = product + ' ' + exchange + ' : ' + sector
 
             if reports:
-                exchange =  name_map['exch_map'][product]
-                sector = name_map['sector_map'][product]
                 title = base_title
                 fig,_ = lib.plot_GSCI_summ_all(reports, title=title)
                 pdf.savefig(fig)

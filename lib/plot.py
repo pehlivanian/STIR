@@ -49,6 +49,7 @@ def plot_GSCI_summ_bystrat_all(reports, strategy, title=''):
     axis.set_ylabel('PL ($)')
 
     for summ in reports:
+        strategy_name = summ.loc[0, 'Strategy']        
         df = summ[['Date', 'PL', 'SubStrategy']]
         df['PL'] = df['PL'].apply(pd.to_numeric)
         df = df.dropna(how='any')    
@@ -60,12 +61,14 @@ def plot_GSCI_summ_bystrat_all(reports, strategy, title=''):
         
         df.Date = pd.to_datetime(df['Date'], format='%Y-%m-%d')
         df.set_index(['Date'], inplace=True)
-        
-        df[['PL_strat']].plot(legend=True, grid=True, ax=axis)
 
-        axis.set_title(title)
-        axis.set_xlabel('Date')
-        axis.set_ylabel('PL ($)')
+        if not df[['PL_strat']].dropna().empty:
+            df = df.rename(columns={'PL_strat': strategy_name })
+            df[strategy_name].plot(legend=True, grid=True, ax=axis)
+
+            axis.set_title(title)
+            axis.set_xlabel('Date')
+            axis.set_ylabel('PL ($)')
 
     return fig, axis    
         
