@@ -1,7 +1,10 @@
+import abc
+import numpy as np
 import pandas as pd
 from collections import defaultdict
 
 import MySQLdb as mariadb
+from dateutil.relativedelta import relativedelta
 from pymongo import MongoClient
 from sqlalchemy import create_engine, Table, Column, MetaData, inspect
 from sqlalchemy_utils import database_exists, create_database
@@ -23,6 +26,8 @@ train_years  = data.train_years
 test_years   = data.test_years
 verify_years = data.verify_years
 
+contract_month_map = dict(zip('FGHJKMNQUVXZ', range(1,13)))
+
 class Singleton(type):
     _instances = {}
     def __call__(cls, *args, **kwargs):
@@ -30,11 +35,16 @@ class Singleton(type):
             cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
         return cls._instances[cls]
 
+class Visitor(metaclass=abc.ABCMeta):
+    @abc.abstractmethod
+    def visit(self, element):
+        pass
+    
 class Credentials(metaclass=Singleton):
-
+    ''' mariadb, mongodb credentials object
+    '''
     def __init__(self):
         client = MongoClient()
-
         self._coll = client.STIR.get_collection('credentials')
     
     def DB_creds(self, db_override=None):
@@ -47,7 +57,7 @@ class Credentials(metaclass=Singleton):
     def quandl_creds(self):
         creds = self._coll.find_one()
         return creds['quandl']['api_key']
-
+    
 def list_databases():
     credentials = Credentials()
     user, passwd, db = credentials.DB_creds()
@@ -92,11 +102,53 @@ def get_summary(products):
         summ_dataframes[df_key].append(df)
 
     return summ_dataframes
-        
 
+class SummStats(object):
+    def __init__(self, price_pos):
+        self._price_pos = price_pos
 
-                            
-                            
-            
+        self.summary_stats()
+
+    def _pl_series(self):
+        return np.concatenate([[0], self._price_pos['Price_mult'][:-1] * self._price_pos['Position'][:-1] \
+                               * np.diff(self._price_pos['Settle12'])])
+    def summary_stats(self):
+        try:
+            self._price_pos['PL'] = self._pl_series()
+        except TypeError:
+            self._price_pos['Settle12'] = self._price_pos['Settle12'].apply(lambda x: float(x))
+            self._price_pos['PL'] = self._pl_series()
+    def PL(self):
+        return self._price_pos
+
+from pandas.tseries.holiday import USFederalHolidayCalendar
+from pandas.tseries.offsets import CustomBusinessDay
+from pandas.tseries.offsets import CustomBusinessMonthBegin
+
+US_Federal_Calendar = USFederalHolidayCalendar()
+bmth_us = CustomBusinessMonthBegin(calendar=US_Federal_Calendar)
+bday_us = CustomBusinessDay(calendar=US_Federal_Calendar)
+
+def bus_day_add(dt, num_days):
+    ''' Add tenor to day, returns business day
+    '''
     
+    if num_days == 0:
+        raise RuntimeError('Num of business days specified is 0')
+    
+    if num_days < 0:
+        day_offset  = -2*(abs(num_days)+3)
+        num_periods = -1*day_offset 
+    else:
+        day_offset  = -5
+        num_periods = min(5,2*(num_days+3))
+        
+    dts = [ts.date() for ts in pd.date_range(dt+relativedelta(days=day_offset), periods=num_periods, freq=bday_us)]
+    try:
+        dt_ind = dts.index(dt)
+    except ValueError:
+        dt_ind = bisect.bisect_left(dts, dt)
+        num_days -= 1
 
+    return dts[dt_ind+num_days]
+    

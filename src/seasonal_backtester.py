@@ -1,4 +1,3 @@
-from collections import namedtuple
 from itertools import permutations, combinations
 import abc
 import numpy as np
@@ -7,6 +6,8 @@ import pandas as pd
 import lib
 import db
 from data import (products, nrbys, months, years, fields, name_map, train_years, test_years, verify_years)
+from lib.utils import SummStats, Singleton, Visitor
+from lib import SeasonalParamList
 
 import pdb
 
@@ -18,46 +19,10 @@ import pdb
 # C = max year difference in spread contracts
 # Y = minimum number of years required per study to train model
 
-Param = namedtuple( 'Param', ['S', 'R', 'D', 'M', 'C', 'Y'])
-
 MIN_ROWS = 5
 
-class Problem_0(object):
-    def __init__(self):
-        pass
-
-    @staticmethod
-    def params():
-        return Param(S=3, R=.7, D=25, M=3, C=1, Y=10)
-
-class Visitor(object):
-    def __init__(self):
-        pass
-
-    @abc.abstractmethod
-    def visit(self, element):
-        pass
-
-class SummStats(object):
-    def __init__(self, price_pos):
-        self._price_pos = price_pos
-
-        self.summary_stats()
-
-    def _pl_series(self):
-        return np.concatenate([[0], self._price_pos['Price_mult'][:-1] * self._price_pos['Position'][:-1] \
-                               * np.diff(self._price_pos['Settle12'])])
-    def summary_stats(self):
-        try:
-            self._price_pos['PL'] = self._pl_series()
-        except TypeError:
-            self._price_pos['Settle12'] = self._price_pos['Settle12'].apply(lambda x: float(x))
-            self._price_pos['PL'] = self._pl_series()
-    def PL(self):
-        return self._price_pos
-    
 class Backtester(Visitor):
-    def __init__(self, product, param_obj=Problem_0):
+    def __init__(self, product, param_obj=SeasonalParamList[0]):
         self._product  = product
         self._exchange = name_map['exch_map'][product] 
         self._metrics_map = {'drawup'  : lib.max_drawup,
@@ -194,7 +159,7 @@ class Backtester(Visitor):
                     summary_all = pd.DataFrame()
 
 
-    def create_slice_summary(self):
+    def create_summary(self, SLICE_SUMMARY=True):
 
         MAX_OFFSET = 2
         combs = list(combinations(months, 2))
@@ -208,7 +173,10 @@ class Backtester(Visitor):
             for offset in range(first_offset, 1+MAX_OFFSET):
                 try:
                     price = self._SpreadObj._create_study(front_mth, back_mth, offset)
-                    self.slice_summary_helper(price, front_mth, back_mth, offset )
+                    if SLICE_SUMMARY:
+                        self.slice_summary_helper(price, front_mth, back_mth, offset )
+                    else:
+                        self.strategy_summary_helper(price, front_mth,back_mth, offset )
                 except Exception as e:
                     print(e)
                     continue
@@ -216,10 +184,10 @@ class Backtester(Visitor):
 def seasonal_slice_backtest():
     for product in products:
         B = Backtester(product)
-        B.create_slice_summary()
+        B.create_summary(SLICE_SUMMARY=True)
 
 def seasonal_strategy_backtest():
     for product in products:
         B = Backtester(product)
-        B.create_strategy_summary()
+        B.create_summary(SLICE_SUMMARY=False)
 
