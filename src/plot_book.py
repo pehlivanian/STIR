@@ -113,7 +113,7 @@ def plot_GSCI_metrics_by_product(metrics, product):
 def plot_GSCI_by_sector():
     pass
     
-def plot_book():
+def plot_book(products=products):
     for product in products:
         plot_book_by_product(product, max_offset=2, filename='./figs/all_{}_spreads.pdf'.format(product))        
 

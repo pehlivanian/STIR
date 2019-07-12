@@ -51,9 +51,13 @@ def main():
         if options.action == 'plot_by_product':
             import src
             filename = options.filename or './figs/all_{}_spreads.pdf'.format(product)
-            src.plot_book_by_product(options.product,filename=filename)
-        if options.action == 'simulate':
-            pass
+            src.plot_book_by_product(options.product, filename=filename)
+        if options.action == 'simulate_slice':
+            import src
+            src.seasonal_slice_backtest()
+        if options.action == 'simulate_strategy':
+            import src
+            src.seasonal_strategy_backtest()
     
 if __name__ == '__main__':
     main()

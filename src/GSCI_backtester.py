@@ -436,6 +436,7 @@ class Backtester(Visitor):
                     # No EST positions for this strategy
                     est_price_pos = None                    
                     liq_price_pos = None
+                    
                     if est_metrics.loc[0].sharpe > self._props.get('liq_cutoff'):
                         liq_price_pos = create_pos(liq_dates_df, price, lots, foll_year, product_dols, dols_per_tick, False)
                         liq_price_pos = SummStats(liq_price_pos).PL()
@@ -465,29 +466,29 @@ class Backtester(Visitor):
 def GSCI_backtest(products=products):
     for product in products:
 
-        # print('Product: {} Problem 1'.format(product))
-        # B1 = Backtester(product, param_obj=Problem_1())
-        # summ, metrics, summ_table_name, metrics_table_name = B1.backtest_helper()
+        print('Product: {} Problem 1'.format(product))
+        B1 = Backtester(product, param_obj=Problem_1())
+        summ, metrics, summ_table_name, metrics_table_name = B1.backtest_helper()
 
-        # print('Product: {} Problem 2'.format(product))
-        # B2 = Backtester(product, param_obj=Problem_2())
-        # summ, metrics, summ_table_name, metrics_table_name = B2.backtest_helper()
+        print('Product: {} Problem 2'.format(product))
+        B2 = Backtester(product, param_obj=Problem_2())
+        summ, metrics, summ_table_name, metrics_table_name = B2.backtest_helper()
 
-        # print('Product: {} Problem 3'.format(product))        
-        # B3 = Backtester(product, param_obj=Problem_3())        
-        # summ, metrics, summ_table_name, metrics_table_name = B3.backtest_helper()
+        print('Product: {} Problem 3'.format(product))        
+        B3 = Backtester(product, param_obj=Problem_3())        
+        summ, metrics, summ_table_name, metrics_table_name = B3.backtest_helper()
 
-        # print('Product: {} Problem 4'.format(product))        
-        # B4 = Backtester(product, param_obj=Problem_4())
-        # summ, metrics, summ_table_name, metrics_table_name = B4.backtest_helper()
+        print('Product: {} Problem 4'.format(product))        
+        B4 = Backtester(product, param_obj=Problem_4())
+        summ, metrics, summ_table_name, metrics_table_name = B4.backtest_helper()
         
-        # print('Product: {} Problem 5'.format(product))        
-        # B5 = Backtester(product, param_obj=Problem_5())
-        # summ, metrics, summ_table_name, metrics_table_name = B5.backtest_helper()
+        print('Product: {} Problem 5'.format(product))        
+        B5 = Backtester(product, param_obj=Problem_5())
+        summ, metrics, summ_table_name, metrics_table_name = B5.backtest_helper()
 
-        # print('Product: {} Problem 6'.format(product))        
-        # B6 = Backtester(product, param_obj=Problem_6())
-        # summ, metrics, summ_table_name, metrics_table_name = B6.backtest_helper()
+        print('Product: {} Problem 6'.format(product))        
+        B6 = Backtester(product, param_obj=Problem_6())
+        summ, metrics, summ_table_name, metrics_table_name = B6.backtest_helper()
 
         print('Product: {} Problem 7'.format(product))        
         B7 = Backtester(product, param_obj=Problem_7())

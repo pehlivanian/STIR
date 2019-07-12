@@ -4,6 +4,30 @@ import re
 import string
 import sys
 
+def max_stats(arr):
+    M = np.finfo(np.float32).min
+    m = np.finfo(np.float32).max
+    drawup = np.finfo(np.float32).min
+    drawdn = np.finfo(np.float32).min
+
+    for ind,d in enumerate(arr):
+        if M-d > drawdn:
+            drawdn = M-d
+            iM,jM = max_ind,ind
+        if d-m > drawup:
+            drawup = d-m
+            im,jm = min_ind,ind
+        if d > M:
+            max_ind = ind
+            M = d
+        if d < m:
+            min_ind = ind
+            m = d
+            
+    # [im. jm] ~ drawup
+    # [iM, jM] ~ drawdn
+    return im,jm,iM,jM,drawup,drawdn
+
 def max_drawdown(s, mult=1):
     drawdown = -sys.maxsize-1
     M = s.get_values()[0]
