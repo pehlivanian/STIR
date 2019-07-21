@@ -37,7 +37,32 @@ class Backtester(Visitor):
         self._DBConn = db.DBExt(self._product, db_name=self._db_name)
         self._params = param_obj.params()
 
-    def strategy_summary_helper(self, price, front_mth, back_mth, offset ):
+    def visit( self, element ):
+        pass
+
+    def _create_sql_table( self, tablename ):
+        from sqlalchemy import Column, Integer, Float, String
+        from sqlalchemy import MetaData
+        from sqlalchemy import Table
+
+        metadata = MetaData( self._DBConn._conn )
+        # Create schema
+        table = Table( tablename, metadata,
+                    Column('ampl',        Float,       nullable=False),
+                    Column('drawdn',      Float,       nullable=False),
+                    Column('drawup',      Float,       nullable=False),
+                    Column('freq',        Float,       nullable=False),
+                    Column('meanret',     Float,       nullable=False),
+                    Column('sharpe',      Float,       nullable=False),
+                    Column('uprat',       Float,       nullable=False),
+                    Column('strategy',    String(125), nullable=False),
+                    Column('substrategy', String(125), nullable=False),
+                    Column('pivot0',      Integer,     nullable=False),
+                    Column('pivot1',      Integer,     nullable=False))
+
+        metadata.create_all()    
+    
+    def strategy_summary_helper(self, price, front_mth, back_mth, offset, total_dols=1e6 ):
 
         counter = 0
         summary_all = pd.DataFrame()
@@ -79,20 +104,49 @@ class Backtester(Visitor):
         all_levels = all_levels[['Norm_day', 'Settle12']]
 
         pivots = lib.max_stats(all_levels['Settle12'])
-        
+
         dols_per_tick = float(name_map['lotsize_map'][self._product]) * float(name_map['mult_map'][self._product])
+        lots = total_dols / dols_per_tick
         all_levels['Position'] = 0
-        all_levels['Position'][pivots[0]:pivots[1]] = num_lots
-        all_levels['Position'][pivots[2]:pivots[3]] = -1 * num_lots
-        
+        all_levels['Position'][pivots[0]:pivots[1]] = lots
+        all_levels['Position'][pivots[2]:pivots[3]] = -1 * lots
+
         all_levels['Price_mult'] = dols_per_tick
         all_levels = SummStats(all_levels).PL()
 
-        est_levels   = pd.Series(all_levels['PL']).astype('float')
-        est_levels   = est_levels[min(pivots[:4]):max(pivots[:4])]
-        est_metrics  = pd.DataFrame({k:[v(est_levels)] for k,v in _metrics_map.items()})
+        strat_name = self._strategy_summary_strat_name( front_mth, back_mth, offset )
         
+        est_levels   = pd.Series(all_levels['PL']).astype('float')
+        est_levels   = est_levels[pivots[0]:pivots[1]]
+        est_metrics  = pd.DataFrame({k:[v(est_levels)] for k,v in self._metrics_map.items()})
+        est_metrics['substrategy'] = 'EST'
+        est_metrics['strategy'] = strat_name
+        est_metrics['pivot0'] = pivots[0]
+        est_metrics['pivot1'] = pivots[1]
+        
+        liq_levels = pd.Series(all_levels['PL']).astype('float')
+        liq_levels = liq_levels[pivots[2]:pivots[3]]
+        liq_metrics = pd.DataFrame({k:[v(liq_levels)] for k,v in self._metrics_map.items()})
+        liq_metrics['strategy'] = strat_name
+        liq_metrics['substrategy'] = 'LIQ'
+        liq_metrics['pivot0'] = pivots[2]
+        liq_metrics['pivot1'] = pivots[3]
 
+        summary = pd.concat( [ est_metrics, liq_metrics ] )
+
+        table_name = pref = 'SEASONALS_'+self._product+'_'+self._exchange
+
+        if table_name in self._DBConn.table_names():
+            summary.to_sql(con=self._DBConn._conn, name=table_name, if_exists='append', index=False)
+        else:
+            self._create_sql_table( table_name )
+            summary.to_sql(con=self._DBConn._conn, name=table_name, if_exists='append', index=False)
+        print('Wrote to table: {!r}'.format(table_name))
+
+    def _strategy_summary_strat_name( self, front_mth, back_mth, offset ):
+        pref = 'SUMM_'+self._product+'_'+self._exchange+'_'
+        return pref+front_mth+back_mth+str(offset)
+        
     def _slice_summary_strat_name( self, front_mth, back_mth, offset, sim_day, start_day, end_day ):
         pref = 'SUMM_'+self._product+'_'+self._exchange+'_'
         suff = '['+str(start_day)+'-'+str(end_day)+']'
@@ -187,6 +241,8 @@ def seasonal_slice_backtest():
         B.create_summary(SLICE_SUMMARY=True)
 
 def seasonal_strategy_backtest():
+    # XXX
+    products = ['C']
     for product in products:
         B = Backtester(product)
         B.create_summary(SLICE_SUMMARY=False)

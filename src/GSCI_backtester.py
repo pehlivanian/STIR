@@ -65,6 +65,7 @@ def roll_spread_months(product, month):
 def roll_dates_by_month(yr, mth):
     ''' roll dates by month, with rule specifiation
     '''
+    
     yr, mth = int(yr), int(mth)
     dts = [dtime.date() for dtime in pd.date_range(datetime.date(yr, mth, 1) +
                                                    relativedelta(days=-2) + bmth_us, periods=9, freq=bday_us)]

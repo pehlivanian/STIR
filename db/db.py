@@ -20,6 +20,16 @@ logging.basicConfig()
 logging.getLogger().setLevel(logging.WARN)
 
 
+Dtype_Mapping = {
+    'object' : 'TEXT',
+    'int64'  : 'INT',
+    'float64' : 'FLOAT',
+    'datetime64' : 'DATETIME',
+    'bool' : 'TINYINT',
+    'category' : 'TEXT',
+    'timedelta[ns]' : 'TEXT'
+    }
+
 class Singleton(type):
     _instances = {}
     def __call__(cls, *args, **kwargs):
