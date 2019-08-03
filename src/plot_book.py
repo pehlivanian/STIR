@@ -83,10 +83,13 @@ def plot_GSCI_book_combined(filename='./figs/GSCI_spreads_combined.pdf'):
 
         combined_report = {k:reports_all[k].groupby(by=['Date'],as_index=False)[['Dols', 'PL']].sum() for k in reports_all.keys()}
 
+        report_list = list()
         for strat,report in combined_report.items():
             report['Strategy'] = strat
-            fig,_ = lib.plot_GSCI_summ_all( [report], title='Cumulative Strategy')
-            pdf.savefig(fig)
+            report_list.append(report)
+        fig,_ = lib.plot_GSCI_summ_all( report_list, title='Cumulative Strategy')
+            
+        pdf.savefig(fig)
     
 def plot_GSCI_book(filename='./figs/GSCI_spreads.pdf'):
     reports_by_sector = defaultdict(lambda: defaultdict(list))

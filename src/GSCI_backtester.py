@@ -303,8 +303,6 @@ class Backtester(Visitor):
     
 def GSCI_backtest(products=products):
 
-    # XXX
-    products = [ 'NG' ]
     for product in products:
         for ind,param_obj in enumerate(ParamList):
             print('Product: {} ParamObj: {}'.format( product, ind ))
