@@ -18,7 +18,7 @@ from data import GSCIData
 import lib
 import db
 
-# In order
+# Parameters, in order
 # DB = num closes before first roll close that we start accumulating position
 # acc_method = position accumulation method:
 #        { 'linear' : proportional accumulation
@@ -34,6 +34,7 @@ GSCI_comp     = GSCI_data.GSCI_comp
 GSCI_products = GSCI_data.products
 
 ParamList     = GSCI_params.GSCIParamList
+POS_COLS = ['Date', 'Prod1', 'Month1', 'Month2', 'Offset','Settle1', 'Settle2', 'Position', 'Settle12', '_merge']
 
 def roll_spread_months(product, month):
     ''' Returns front month, back month as contract letter
@@ -52,13 +53,11 @@ def roll_spread_months(product, month):
 
     offset, year_offset = 0,0
 
-    front_month_str = GSCI_comp_row[front_month].get_values()[0]
-    back_month_str  = GSCI_comp_row[back_month].get_values()[0]
+    months = ( front_month, back_month)
+    front_month_str, back_month_str = [ GSCI_comp_row[month].iloc[0] for month in months ]
     
-    if contract_month_map[front_month_str] > contract_month_map[back_month_str]:
-        offset = 1
-    if contract_month_map[front_month_str] < month:
-        year_offset = 1
+    offset = 1 if contract_month_map[front_month_str] > contract_month_map[back_month_str] else 0
+    year_offset = 1 if contract_month_map[front_month_str] < month else 0
 
     return front_month_str, back_month_str, offset, year_offset
 
@@ -103,21 +102,22 @@ def create_pos( dates, price, lots, foll_year, product_dols, dols_per_tick, esta
     ''' Create position dataframe
     '''
 
-    cols = ['Date', 'Prod1', 'Month1', 'Month2', 'Offset','Settle1', 'Settle2', 'Position', 'Settle12', '_merge']
     if establishing:
-        pos_df = pd.DataFrame({ 'Position' : np.linspace(0, -1*lots, 1+dates.shape[0])[1:] })
+        pos_df = pd.DataFrame({ 'Position' : np.linspace(0,      -1*lots, 1+dates.shape[0])[1:] })
     else:
-        pos_df = pd.DataFrame({ 'Position' : np.linspace(1*lots, 0, 1+dates.shape[0])[:-1] })
+        pos_df = pd.DataFrame({ 'Position' : np.linspace(lots,   0,       1+dates.shape[0])[:-1]})
     pos_df = pd.concat([dates, pos_df], axis=1)
-    price_pos = pd.merge(pos_df, price[foll_year], how='left', indicator=True)[cols]
+    
+    price_pos = pd.merge(pos_df, price[foll_year], how='left', indicator=True)[POS_COLS]
 
     price_pos = price_pos.dropna(how='any')
+
+    # Recalculate weights for new size, if necessary
     if price_pos.shape[0] != dates.shape[0]:
-        # Recalculate weights
         if establishing:
-            price_pos['Position'] = np.linspace(0, -1*lots, 1+price_pos.shape[0])[1:]
+            price_pos['Position'] = np.linspace(0,    -1*lots, 1+price_pos.shape[0])[1:]
         else:
-            price_pos['Position'] = np.linspace(1*lots, 0, 1+price_pos.shape[0])[:-1]
+            price_pos['Position'] = np.linspace(lots, 0,       1+price_pos.shape[0])[:-1]
         
     price_pos['Dols']          = product_dols
     price_pos['Price_mult']    = dols_per_tick
@@ -139,14 +139,16 @@ class Backtester(Visitor):
                              'nonnegrat' : lib.nonnegrat_levels,
                              'freq'      : lib.freq_levels,
                              'ampl'      : lib.ampl_levels}
-        self._db_name = '_'.join(['STIR', self._exchange, self._product, 'SUMM'])
-        self._SpreadObj = lib.Spread(product)
-        self._DBConn = self._DB_conn(*self._credentials.DB_creds(db_override=self._db_name))
-        self._paramObj = param_obj
-        self._params = param_obj.params
-        self._props = param_obj.props
-        self._props_name = param_obj.props_name
+        self._SpreadObj   = lib.Spread(product)        
+        self._db_name     = '_'.join(['STIR', self._exchange, self._product, 'SUMM'])
+        self._paramObj    = param_obj
+        self._params      = param_obj.params
+        self._props       = param_obj.props
+        self._props_name  = param_obj.props_name
 
+        credentials       = self._credentials.DB_creds(db_override=self._db_name)
+        self._DBConn      = self._DB_conn(*credentials)
+        
     @staticmethod
     def _DB_conn(user, passwd, db):
         conn = create_engine('mysql+mysqldb://{}:{}@localhost/{}'.format(user,passwd,db))
@@ -155,14 +157,12 @@ class Backtester(Visitor):
         return conn
 
     def __repr__(self):
-        r = '{}_{}_{}_{}_{}_{}'.format(
-            self._product,
-            self._exchange,
-            self._params.DB,
-            self._params.acc_method,
-            self._params.DA,
-            self._params.liq_method
-            )
+        r = '_'.join([ self._product,
+                       self._exchange,
+                       str( self._params.DB ),
+                       self._params.acc_method,
+                       str( self._params.DA ),
+                       self._params.liq_method ] )
         if self._props:
             r += '_{}'.format(self._props_name)
         return r
@@ -177,11 +177,11 @@ class Backtester(Visitor):
 
         portfolio_results = pd.DataFrame()
 
-        RPDW = GSCI_comp[GSCI_comp['Product'] == self._product]['2017_RPDW'].get_values()[0]
+        RPDW = GSCI_comp.loc[GSCI_comp['Product'] == self._product]['2017_RPDW'].iloc[0]
         days_before, est_method, days_after, liq_method, days_before_expiration = self._params
 
         S = lib.Spread(self._product)
-        
+
         for month_num in range(1,13):
             front_month, back_month, offset, year_offset = roll_spread_months(self._product, month_num)
 
@@ -200,8 +200,7 @@ class Backtester(Visitor):
             for year in all_years:
                 curr_year,foll_year = year, str(int(year)+year_offset)
                 if int(foll_year) > max([int(yr) for yr in all_years]):
-                    log_msg = 'Spread window for (year, month number): ({}, {}) is beyond test period'.format(
-                        curr_year, month_num)
+                    log_msg = 'Spread window for (year, month number): ({}, {}) is beyond test period; skipping'.format(curr_year, month_num)
                     logging.warn(log_msg)
                     continue
 
@@ -225,18 +224,16 @@ class Backtester(Visitor):
                 # the establishing leg of the strategy in the above formula to calculate
                 # holdings according to the percentage given in the RPDW column.
 
-                est_dates_df  = create_roll_dates(days_before, start_roll_date)
-                liq_dates_df = create_roll_dates(days_after, end_roll_date, establish=False)
+                est_dates_df  = create_roll_dates(days_before, start_roll_date, establish=True)
+                liq_dates_df  = create_roll_dates(days_after, end_roll_date, establish=False)
                                 
                 # Establishing position: calculation of number of units
                 try:
                     DCRP_ref_date = est_dates_df['Date'].get_values()[0]
-                    DCRP = float(price[foll_year][price[foll_year]['Date'] ==
-                                                  DCRP_ref_date]['Open1'].get_values()[0])
+                    DCRP = float(price[foll_year][price[foll_year]['Date'] == DCRP_ref_date]['Open1'].get_values()[0])
                 except KeyError:
                     logging.warn(
-                        'year {} not contained in price matrix - needed for (month,year): ([], {})calculation'.format(
-                            foll_year,month_num, year))
+                        'year {} not contained in price matrix - needed for (month,year): ([], {})calculation'.format( foll_year,month_num, year))
                     continue
                 except Exception as e:
                     days_back = 1
@@ -254,11 +251,11 @@ class Backtester(Visitor):
                 #                           / DCRP / float(name_map['mult_map'][self._product]), 0)
 
                 # Don't
-                lots              = total_dollars * (RPDW / 100) / float(name_map['lotsize_map'][self._product]) / DCRP / float(name_map['mult_map'][self._product])
+                lots              = total_dollars * (RPDW / 100) / float(name_map['lotsize_map'][self._product]) / \
+                                    DCRP / float(name_map['mult_map'][self._product])
                 
                 product_dols      = total_dollars * (RPDW / 100)
                 dols_per_tick     = float(name_map['lotsize_map'][self._product]) * float(name_map['mult_map'][self._product])
-
 
                 # Establishing position
                 est_price_pos = create_pos(est_dates_df, price, lots, foll_year, product_dols, dols_per_tick, True)
@@ -285,22 +282,29 @@ class Backtester(Visitor):
         portfolio_results['Strategy'] = self.__repr__()
 
         portfolio_results = portfolio_results.sort_values('Date')
-
-        summ_table_name = '_'.join(['GSCI_strat_summ', self._product, 'DEFAULT', self.__repr__()])
-        portfolio_results.to_sql(con=self._DBConn, name=summ_table_name, if_exists='replace', index=False)
-        logging.info('Wrote to table {}'.format( summ_table_name ))
+        portfolio_results = portfolio_results.dropna(how='any', subset=['Date'])
 
         levels  = pd.Series(portfolio_results['PL']).astype('float')
-        metrics  = pd.DataFrame({k:[v(levels)] for k,v in self._metrics_map.items()})
-        
-        metrics_table_name = '_'.join(['GSCI_strat_metrics', self._product, 'DEFAULT', self.__repr__()])
-        metrics.to_sql(con=self._DBConn, name=metrics_table_name, if_exists='replace', index=False)
-        logging.info('Wrote to table {}'.format( metrics_table_name ))
 
-        return portfolio_results, metrics, summ_table_name, metrics_table_name
+        if not levels.empty:
+
+            summ_table_name = '_'.join(['GSCI_strat_summ', self.__repr__()])
+            portfolio_results.to_sql(con=self._DBConn, name=summ_table_name, if_exists='replace', index=False)
+            logging.info('Wrote to table {}'.format( summ_table_name ))
+
+            metrics  = pd.DataFrame({k:[v(levels)] for k,v in self._metrics_map.items()})
+            metrics_table_name = '_'.join(['GSCI_strat_metrics', self.__repr__()])
+            metrics.to_sql(con=self._DBConn, name=metrics_table_name, if_exists='replace', index=False)
+            logging.info('Wrote to table {}'.format( metrics_table_name ))
+
+            return portfolio_results, metrics, summ_table_name, metrics_table_name
+
+        return None, None, None, None
     
-
 def GSCI_backtest(products=products):
+
+    # XXX
+    products = [ 'NG' ]
     for product in products:
         for ind,param_obj in enumerate(ParamList):
             print('Product: {} ParamObj: {}'.format( product, ind ))

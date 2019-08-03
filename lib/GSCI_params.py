@@ -67,5 +67,18 @@ class Problem_7(Params):
         props = dict(liq_if_est_money=True, liq_cutoff=0.0)
         props_name = 'prop_0'                        
         super(Problem_7, self).__init__(10, 'linear', 10, 'linear', 2, props=props, props_name=props_name)
+class Problem_8(Params):
+    def __init__(self):
+        props = dict(liq_if_est_money=True, liq_cutoff=1.0)
+        props_name = 'prop_1'
+        super(Problem_8, self).__init__(10, 'linear', 10, 'linear', 2, props=props, props_name=props_name)
 
-GSCIParamList = [Problem_1(), Problem_2(), Problem_3(), Problem_4(), Problem_5(), Problem_6(), Problem_7()]
+class Problem_9(Params):
+    def __init__(self):
+        props = dict(liq_if_est_money=True, liq_cutoff=1.0)
+        props_name = 'prop_1'
+        super(Problem_9, self).__init__(5, 'linear', 10, 'linear', 2, props=props, props_name=props_name)
+
+GSCIParamList = [Problem_1(), Problem_2(), Problem_3(), Problem_4(), Problem_5(), \
+                 Problem_6(), Problem_7(), Problem_8(), Problem_9()]
+

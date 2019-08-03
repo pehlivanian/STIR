@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 from collections import defaultdict
 from itertools import combinations, permutations
@@ -38,12 +39,30 @@ def read_GSCI_summary_tables(product):
 
 def plot_GSCI_book_combined(filename='./figs/GSCI_spreads_combined.pdf'):
 
+    def prot_sum( a, b):
+        return np.nansum( [ a, b ] )
+    
+    from collections import defaultdict
+    select_cols = [ 'Position', 'Dols', 'PL' ]
+    groupby_cols = [ 'Date' ]
+    cols = select_cols + groupby_cols
+    suffixes = ['_base', '_new' ]    
+    reports_all = defaultdict(lambda *a: pd.DataFrame(columns=cols))
+    
     with PdfPages(filename) as pdf:
         for product in products:
             reports_by_sector = defaultdict(lambda: defaultdict(list))
             reports,metrics = read_GSCI_summary_tables(product)
+
             exchange =  name_map['exch_map'][product]
             sector = name_map['sector_map'][product]
+            
+            for ind,report in enumerate(reports):
+                strat = metrics.index[ind].split(product)[-1].split(exchange+'_')[-1]
+                report['Position'] = report['Position'].astype(np.float)
+                report['PL']       = report['PL'].astype(np.float)
+                reports_all[strat] = pd.concat([reports_all[strat], report], axis=0)
+                
             base_title = product + ' ' + exchange + ' : ' + sector
 
             if reports:
@@ -60,7 +79,14 @@ def plot_GSCI_book_combined(filename='./figs/GSCI_spreads_combined.pdf'):
                 fig = plot_GSCI_metrics_by_product(metrics, product)
                 pdf.savefig(fig)
 
-            print('{}'.format(product))                        
+            print('{}'.format(product))
+
+        combined_report = {k:reports_all[k].groupby(by=['Date'],as_index=False)[['Dols', 'PL']].sum() for k in reports_all.keys()}
+
+        for strat,report in combined_report.items():
+            report['Strategy'] = strat
+            fig,_ = lib.plot_GSCI_summ_all( [report], title='Cumulative Strategy')
+            pdf.savefig(fig)
     
 def plot_GSCI_book(filename='./figs/GSCI_spreads.pdf'):
     reports_by_sector = defaultdict(lambda: defaultdict(list))

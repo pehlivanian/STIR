@@ -37,13 +37,7 @@ def max_drawdown(s, mult=1):
     return mult*drawdown
 
 def max_drawdown_levels(s, mult=1):
-    cs = np.cumsum(s)
-    drawdown = -sys.maxsize-1
-    M = cs.get_values()[0]
-    for i,v in enumerate(cs):
-        M = np.nanmax([M,v])
-        drawdown = np.nanmax([M-v,drawdown])
-    return mult*drawdown
+    return max_drawdown(np.cumsum(s))
 
 def max_drawup(s, mult=1):
     return mult*max_drawdown(-s)
@@ -51,23 +45,17 @@ def max_drawup(s, mult=1):
 def max_drawup_levels(s, mult=1):
     return mult*max_drawdown_levels(-s)
 
-def sharpe(s):
-    return np.sqrt(252)*np.nanmean(s)/np.nanstd(s)
-
 def sharpe_levels(s):
     return np.sqrt(252)*np.nanmean(s)/np.nanstd(s)
 
-def meanret(s, mult=1):
-    return mult*round(np.nanmean(s), 4)
+def sharpe(s):
+    return sharpe_levels(np.diff(s))
 
 def meanret_levels(s, mult=1):
     return mult*round(np.nanmean(s), 4)
 
-def uprat(s):
-    try:
-        return sum(s>0)/len(s)
-    except ValueError:
-        return 0.
+def meanret(s, mult=1):
+    return meanret_levels(np.diff(s))
 
 def uprat_levels(s):
     try:
@@ -75,17 +63,17 @@ def uprat_levels(s):
     except ValueError:
         return 0.
 
-def nonnegrat(s):
-    try:
-        return sum(s>=0)/len(s)
-    except ValueError:
-        return 0.
-
+def uprat(s):
+    return uprat_levels(np.diff(s))
+    
 def nonnegrat_levels(s):
     try:
         return sum(s>=0)/len(s)
     except ValueError:
         return 0.
+
+def nonnegrat(s):
+    return nonnegrat_levels(np.diff(s))
     
 def freq(s):
     ps = np.abs(np.fft.rfft(s.fillna(0)))
@@ -127,7 +115,7 @@ def ampl_levels(s):
         m = np.nan
     return m
 
-def max_Sharpe(s, min_days, up=True):
+def maxSharpe(s, min_days, up=True):
     d = np.diff(s)
     t1 = 0
     t2 = 0
