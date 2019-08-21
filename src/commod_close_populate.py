@@ -14,8 +14,11 @@ def populate_data(products=products):
         db_inst = db.DBExt(product)
         
         db_inst._commit_close()
-        print('FINISHED PERSISTING CLOSE TABLE FOR {!r}'.format(product))
+        print('FINISHED PERSISTING CLOSE TABLES FOR {!r}'.format(product))
 
         db_inst._commit_LTD_FND()
-        print('FINISHED PERSISTING LTD_FND TABLE  FOR {!r}'.format(product))
+        print('FINISHED PERSISTING LTD_FND TABLE FOR {!r}'.format(product))
+
+        db_inst._commit_continuous_contract()
+        print('FINISHED PERSISTING CONTINUOUS CONTRACT TABLES FOR {!r}'.format(product))
         

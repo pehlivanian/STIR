@@ -13,7 +13,6 @@ from contextlib import contextmanager
 import sys
 sys.path.append('../')
 
-import db
 import data
 
 products     = data.all_products
@@ -57,7 +56,7 @@ class Credentials(metaclass=Singleton):
     def quandl_creds(self):
         creds = self._coll.find_one()
         return creds['quandl']['api_key']
-    
+
 def list_databases():
     credentials = Credentials()
     user, passwd, db = credentials.DB_creds()

@@ -8,19 +8,7 @@ names_dir = working_dir + "ALL_NAMES/"
 years_dir = working_dir + "ALL_DATES/"
 months_dir = working_dir + "ALL_DATES/"
 fields_dir = working_dir + "ALL_NAMES/"
-dates_dir = working_dir + "ALL_DATES/"
 nrby_dir = working_dir + "ALL_DATES/"
-
-def all_dates():
-    fn = dates_dir + "all_dates.dat"
-    
-    r = []
-    file = open(fn)
-    lines = file.readlines()
-    for line in lines:
-        r.append(line.rstrip())
-    
-    return r
 
 def all_fields():
     fn = fields_dir + "all_fields.dat"
